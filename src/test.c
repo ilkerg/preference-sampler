@@ -2,23 +2,28 @@
 #include <stdlib.h>
 
 #include "vector.h"
+#include "matrix.h"
 #include "helpers.h"
 #include "model.h"
+#include "simplex.h"
 
-START_TEST(test_vector_double_new)
+/*
+ * vector tests
+ */
+START_TEST(test_vector_new)
 {
-    vector_double *v = vector_double_new(3);
+    vector *v = vector_new(3);
     ck_assert_ptr_nonnull(v);
     ck_assert_ptr_nonnull(v->data);
     ck_assert_uint_eq(v->size, 3);
-    vector_double_free(v);
+    vector_free(v);
 }
 END_TEST
 
 START_TEST(test_vector_elements)
 {
     double tol = 1e-15;
-    vector_double *v = vector_double_new(3);
+    vector *v = vector_new(3);
     v->data[0] = .3;
     v->data[1] = .5;
     v->data[2] = .2;
@@ -27,9 +32,65 @@ START_TEST(test_vector_elements)
     ck_assert_double_eq_tol(v->data[1], .5, tol);
     ck_assert_double_eq_tol(v->data[2], .2, tol);
 
-    vector_double_free(v);
+    vector_free(v);
 }
 END_TEST
+
+/*
+ * matrix tests
+ */
+START_TEST(test_matrix_new)
+{
+    matrix *m = matrix_new(3, 2);
+    ck_assert_ptr_nonnull(m);
+    ck_assert_ptr_nonnull(m->data);
+    ck_assert_uint_eq(m->nrow, 3);
+    ck_assert_uint_eq(m->ncol, 2);
+    matrix_free(m);
+}
+END_TEST
+
+START_TEST(test_matrix_elements)
+{
+    double tol = 1e-15;
+    size_t nrow = 3;
+    size_t ncol = 2;
+
+    matrix *m = matrix_new(nrow, ncol);
+    double (*mm)[ncol] = (double (*)[ncol]) m->data;
+    mm[0][1] = .3;
+
+    ck_assert_double_eq_tol(mm[0][1], .3, tol);
+
+    matrix_free(m);
+}
+END_TEST
+
+/*
+ * simplex tests
+ */
+START_TEST(test_simplex_transform)
+{
+    double tol = 1e-15;
+    const size_t K=3;
+    double th[K];
+    double th_bar[K];
+    double y[K-1];
+
+    for(size_t k=0; k<K; k++)
+        th[k] = 1. / K;
+
+    transform(K, th, y);
+    inverse_transform(K, y, th_bar);
+
+    for(size_t k=0; k<K-1; k++)
+        ck_assert_double_eq_tol(y[k], 0., tol);
+
+    for(size_t k=0; k<K; k++)
+        ck_assert_double_eq_tol(th[k], th_bar[k], tol);
+}
+END_TEST
+
 
 START_TEST(test_sum)
 {
@@ -149,17 +210,24 @@ Suite * test_suite(void)
 {
     Suite *s;
     TCase *tc_vector;
+    TCase *tc_matrix;
     TCase *tc_core;
     TCase *tc_model;
+    TCase *tc_simplex;
 
     s = suite_create("Tests");
 
     /* Vector test case */
     tc_vector = tcase_create("Vector");
-    tcase_add_test(tc_vector, test_vector_double_new);
+    tcase_add_test(tc_vector, test_vector_new);
     tcase_add_test(tc_vector, test_vector_elements);
     suite_add_tcase(s, tc_vector);
 
+    /* Matrix test case */
+    tc_matrix = tcase_create("Matrix");
+    tcase_add_test(tc_matrix, test_matrix_new);
+    tcase_add_test(tc_matrix, test_matrix_elements);
+    suite_add_tcase(s, tc_matrix);
 
     /* Core test case */
     tc_core = tcase_create("Core");
@@ -176,6 +244,10 @@ Suite * test_suite(void)
     /* tcase_add_test(tc_model, test_full_conditionals_last_player_has_played_2); */
     tcase_add_test(tc_model, test_full_conditionals_big_list);
     suite_add_tcase(s, tc_model);
+
+    tc_simplex = tcase_create("Simplex");
+    tcase_add_test(tc_simplex, test_simplex_transform);
+    suite_add_tcase(s, tc_simplex);
 
     return s;
 }

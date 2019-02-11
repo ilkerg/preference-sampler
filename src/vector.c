@@ -2,14 +2,15 @@
 
 #include <stdlib.h>
 
-vector_double * vector_double_new(unsigned int size) {
-    vector_double *v = malloc(sizeof(vector_double));
+vector* vector_new(size_t size) {
+    vector *v = malloc(sizeof(vector));
     v->data = malloc(size * sizeof(double));
     v->size=size;
     return v;
 }
 
-void vector_double_free(vector_double *v) {
+void vector_free(vector *v) {
+    free(v->data);
     free(v);
 }
 

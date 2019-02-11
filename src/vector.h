@@ -1,12 +1,15 @@
-#ifndef VECTOR_DOUBLE_H
-#define VECTOR_DOUBLE_H
+#ifndef VECTOR_H
+#define VECTOR_H
 
-typedef struct vector_double {
-    unsigned int size;
+#include <stdlib.h>
+
+typedef struct vector {
+    size_t size;
     double *data;
-} vector_double;
+} vector;
 
-vector_double * vector_double_new(unsigned int size);
-void vector_double_free(vector_double *vector);
+vector* vector_new(size_t size);
+void vector_free(vector *v);
 
 #endif
+
