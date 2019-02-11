@@ -2,8 +2,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <gsl/gsl_math.h>
+#include <gsl/gsl_sf_log.h>
+#include <gsl/gsl_sf_exp.h>
 
-double sum(double x[], size_t length) {
+double sum(const double x[], const size_t length) {
     double sum = 0.0;
     for(size_t i = 0; i < length; i++)
         sum += x[i];
@@ -11,12 +13,12 @@ double sum(double x[], size_t length) {
     return sum;
 }
 
-void ones(double *arr, size_t length) {
+void ones(double *arr, const size_t length) {
     for(size_t i = 0; i<length; i++)
         arr[i] = 1.0;
 }
 
-void zeros(double *arr, size_t length) {
+void zeros(double *arr, const size_t length) {
     memset(arr, 0.0, length * sizeof(double));
 }
 
@@ -31,10 +33,10 @@ double log_sum_exp(double x[], size_t length) {
     }
 
     for (i = 0; i < length; i++) {
-        sum += exp(x[i] - max);
+        sum += gsl_sf_exp(x[i] - max);
     }
 
-    return max + log(sum);
+    return max + gsl_sf_log(sum);
 }
 
 int is_in(size_t e, size_t *x, size_t length) {
