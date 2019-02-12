@@ -147,6 +147,41 @@ void move_simplex_transform(const gsl_rng *r, const size_t S, const size_t M, co
     }
 }
 
+
+void move_dirichlet(const gsl_rng *r, const size_t N, const size_t S, const size_t M, const size_t K,
+        const double th[K], double new_th[K], const size_t games[S][M], const size_t winners[S]) {
+    double th_p[K];
+
+    double alpha[K];
+    for (size_t k=0; k<K; k++) {
+        alpha[k] = 100*th[k];
+    }
+
+#pragma omp critical
+    gsl_ran_dirichlet(r, K, alpha, th_p);
+
+    for (size_t k=0; k<K; k++) {
+        if (th_p[k] == 0)
+            th_p[k] = DBL_MIN;
+    }
+
+    // accept-reject
+    double ll = loglik(S, M, K, th, games, winners);
+    double ll_p = loglik(S, M, K, th_p, games, winners);
+
+    assert(gsl_finite(ll) == 1);
+    assert(gsl_finite(ll_p) == 1);
+
+    double a = gsl_rng_uniform_pos(r);
+    if (gsl_sf_log(a) < ll_p - ll) {
+        /* accept */
+        memcpy(new_th, th_p, K*sizeof(double));
+    } else {
+        /* reject */
+        memcpy(new_th, th, K*sizeof(double));
+    }
+}
+
 void resample_move(const gsl_rng *r, const size_t N, const size_t K, const size_t S, const size_t M,
         double theta[N][K], const double w[N], const size_t x[S][M], const size_t y[S]) {
 
@@ -166,7 +201,8 @@ void resample_move(const gsl_rng *r, const size_t N, const size_t K, const size_
         else {
 #pragma omp parallel for
             for (size_t i=0; i < cnt[n]; i++) {
-                move_simplex_transform(r, S, M, K, theta[n], theta_new[n_new+i], x, y);
+                //move_simplex_transform(r, S, M, K, theta[n], theta_new[n_new+i], x, y);
+                move_dirichlet(r, N, S, M, K, theta[n], theta_new[n_new+i], x, y);
             }
             n_new+=cnt[n];
         }
@@ -187,9 +223,6 @@ void sample_theta_star(const gsl_rng *r, const size_t K, double theta_star[K]) {
     gsl_sort_largest(theta_star, K, ts, 1, K);
 }
 
-/*
- *
- */
 void sim(struct sim_context *ctx) {
     /*
      * theta stores current particles
@@ -221,13 +254,12 @@ void sim(struct sim_context *ctx) {
     printf("\n");
 
     /* sample N particles from the prior */
-#pragma omp parallel for
     for (size_t n = 0; n < N; n++) {
         gsl_ran_dirichlet(r, K, alpha, theta[n]);
     }
 
     for(size_t s = 0; s < S; s++) {
-        //fprintf(stderr, "s = %zu\r", s);
+        fprintf(stderr, "s = %zu\r", s);
 #pragma omp parallel for
         for(size_t n=0; n<N; n++) {
             double smm = sum(theta[n], K);
@@ -307,8 +339,8 @@ void sim(struct sim_context *ctx) {
             for (size_t m=0; m<M; m++) {
                 sum_theta += theta[n][players[m]];
             }
-
             logw[n] += gsl_sf_log(theta_winner) - gsl_sf_log(sum_theta);
+
             w[n] = gsl_sf_exp(logw[n]);
             assert(gsl_finite(w[n]) == 1);
         }
