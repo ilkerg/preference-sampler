@@ -106,8 +106,10 @@ void move_gibbs(const gsl_rng *r, const size_t S, const size_t M, const size_t K
     }
 }
 
-void move_simplex_transform(const gsl_rng *r, const size_t S, const size_t M, const size_t K,
+unsigned int move_simplex_transform(const gsl_rng *r, const size_t S, const size_t M, const size_t K,
         const double th[K], double new_th[K], const size_t games[S][M], const size_t winners[S]) {
+    unsigned int accepted;
+
     // forward transform
     double y[K-1];
     double y_prime[K-1];
@@ -141,16 +143,21 @@ void move_simplex_transform(const gsl_rng *r, const size_t S, const size_t M, co
     if (gsl_sf_log(alpha) < ll_p - ll) {
         /* accept */
         memcpy(new_th, th_p, K*sizeof(double));
+        accepted = 1;
     } else {
         /* reject */
         memcpy(new_th, th, K*sizeof(double));
+        accepted = 0;
     }
+
+    return accepted;
 }
 
 
-void move_dirichlet(const gsl_rng *r, const size_t N, const size_t S, const size_t M, const size_t K,
+unsigned int move_dirichlet(const gsl_rng *r, const size_t N, const size_t S, const size_t M, const size_t K,
         const double th[K], double new_th[K], const size_t games[S][M], const size_t winners[S]) {
     double th_p[K];
+    unsigned int accepted;
 
     double alpha[K];
     for (size_t k=0; k<K; k++) {
@@ -176,16 +183,21 @@ void move_dirichlet(const gsl_rng *r, const size_t N, const size_t S, const size
     if (gsl_sf_log(a) < ll_p - ll) {
         /* accept */
         memcpy(new_th, th_p, K*sizeof(double));
+        accepted = 1;
     } else {
         /* reject */
         memcpy(new_th, th, K*sizeof(double));
+        accepted = 0;
     }
+    return accepted;
 }
 
 void resample_move(const gsl_rng *r, const size_t N, const size_t K, const size_t S, const size_t M,
         double theta[N][K], const double w[N], const size_t x[S][M], const size_t y[S]) {
 
     unsigned int cnt[N];
+    size_t accepted = 0;
+    size_t to_move = 0;
 
     gsl_ran_multinomial(r, N, N, w, cnt);
 
@@ -195,18 +207,20 @@ void resample_move(const gsl_rng *r, const size_t N, const size_t K, const size_
         if (cnt[n] == 0)
             continue;
 
-        if (cnt[n] == 1) {
-            memcpy(theta_new[n_new++], theta[n], sizeof theta[n]);
+        to_move += cnt[n];
+
+#pragma omp parallel for reduction(+:accepted)
+        for (size_t i=0; i < cnt[n]; i++) {
+            //accepted += move_simplex_transform(r, S, M, K, theta[n], theta_new[n_new+i], x, y);
+            accepted += move_dirichlet(r, N, S, M, K, theta[n], theta_new[n_new+i], x, y);
         }
-        else {
-#pragma omp parallel for
-            for (size_t i=0; i < cnt[n]; i++) {
-                //move_simplex_transform(r, S, M, K, theta[n], theta_new[n_new+i], x, y);
-                move_dirichlet(r, N, S, M, K, theta[n], theta_new[n_new+i], x, y);
-            }
-            n_new+=cnt[n];
-        }
+        n_new+=cnt[n];
     }
+
+    printf("# to_move = %zu\n", to_move);
+    printf("# accepted = %zu\n", accepted);
+    printf("# acceptance ratio = %lf\n", (double) accepted / to_move);
+
     memcpy(theta, theta_new, N*K*sizeof(double));
     free(theta_new);
 }
@@ -216,10 +230,13 @@ void sample_theta_star(const gsl_rng *r, const size_t K, double theta_star[K]) {
     double ts[K];
     /* ones(a, K); */
     for (size_t k=0; k<K; k++) {
-        a[k] = 1 / (double) K;
+        a[k] = 1. / K;
     }
 
     gsl_ran_dirichlet(r, K, a, ts);
+    for (size_t k=0; k<K; k++) {
+        assert(ts[k] > 0.);
+    }
     gsl_sort_largest(theta_star, K, ts, 1, K);
 }
 
@@ -298,7 +315,6 @@ void sim(struct sim_context *ctx) {
         }
         */
 
-        printf("# s = %zu\n", s);
         printf("# sampled theta: ");
         to_string(theta_c, K);
         printf("\n");
