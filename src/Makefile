@@ -1,37 +1,29 @@
 CC = clang
-FSANITIZATION = -fsanitize=memory
+#FSANITIZATION = -fsanitize=memory
 FSANITIZATION =
-FOPENMP = -fopenmp
-#FOPENMP =
+#FOPENMP = -fopenmp
+FOPENMP =
 LDFLAGS = $(shell pkg-config --libs gsl) $(FOPENMP) $(FSANITIZATION) -lprofiler
 LDTESTFLAGS = -lcheck
-#CFLAGS = -DNDEBUG -O2 $(FOPENMP)
-CFLAGS = -g -O0 $(FOPENMP) $(FSANITIZATION)
+CFLAGS = -DNDEBUG -O2 $(FOPENMP)
+#CFLAGS = -g -O0 $(FOPENMP) $(FSANITIZATION)
+
+OBJ_DIR = ../obj/
+OBJ = model.o helpers.o vector.o matrix.o simplex.o
+OBJECTS = $(addprefix $(OBJ_DIR), $(OBJ))
 
 all: sampler test tags
 	cp ./sampler ../bin/
 	cp ./test ../bin/
 
-model.o: model.c model.h
+../obj/%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-helpers.o: helpers.c helpers.h
-	$(CC) $(CFLAGS) -c $< -o $@
+sampler: $(OBJECTS) $(OBJ_DIR)sampler.o
+	$(CC) $(LDFLAGS) $(OBJECTS) $(OBJ_DIR)/sampler.o -o sampler
 
-vector.o: vector.c vector.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-matrix.o: matrix.c matrix.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-simplex.o: simplex.c simplex.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-sampler: sampler.o model.o helpers.o simplex.o
-	$(CC) $(LDFLAGS) $? -o sampler
-
-test: vector.o matrix.o simplex.o helpers.o model.o test.o
-	$(CC) $(LDFLAGS) $(LDTESTFLAGS) $? -o test
+test: $(OBJECTS) $(OBJ_DIR)test.o
+	$(CC) $(LDFLAGS) $(LDTESTFLAGS) $(OBJECTS) $(OBJ_DIR)/test.o -o test
 
 .PHONY: tags
 tags:
@@ -39,5 +31,5 @@ tags:
 
 .PHONY: clean
 clean:
-	rm -f *.o sampler test
+	rm -f $(OBJ_DIR)*.o sampler test
 
