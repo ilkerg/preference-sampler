@@ -3,9 +3,9 @@ CC = clang
 FSANITIZATION =
 #FOPENMP = -fopenmp
 FOPENMP =
-LDFLAGS = $(shell pkg-config --libs gsl) $(FOPENMP) $(FSANITIZATION) -lprofiler
+LDFLAGS = $(shell pkg-config --libs gsl) $(FOPENMP) $(FSANITIZATION) -march=native -lprofiler
 LDTESTFLAGS = -lcheck
-CFLAGS = -DNDEBUG -O2 $(FOPENMP)
+CFLAGS = -DNDEBUG -O3 $(FOPENMP) -march=native
 #CFLAGS = -g -O0 $(FOPENMP) $(FSANITIZATION)
 
 OBJ_DIR = ../obj/
