@@ -1,12 +1,14 @@
-CC = clang
+CC = cc
 #FSANITIZATION = -fsanitize=memory
 FSANITIZATION =
 #FOPENMP = -fopenmp
 FOPENMP =
-LDFLAGS = $(shell pkg-config --libs gsl) $(FOPENMP) $(FSANITIZATION) -march=native -lprofiler
+LDFLAGS = $(shell pkg-config --libs gsl) $(FOPENMP) $(FSANITIZATION) \
+		  -march=native #-lprofiler
 LDTESTFLAGS = -lcheck
-CFLAGS = -DNDEBUG -O3 $(FOPENMP) -march=native
-#CFLAGS = -g -O0 $(FOPENMP) $(FSANITIZATION)
+#CFLAGS = -DNDEBUG -O3 $(FOPENMP) -march=native -ffast-math \
+		 -Rpass-missed=loop-vectorize -Rpass-analysis=loop-vectorize
+CFLAGS = -g -O0 -std=c99 $(FOPENMP) $(FSANITIZATION)
 
 OBJ_DIR = ../obj/
 OBJ = model.o helpers.o vector.o matrix.o simplex.o

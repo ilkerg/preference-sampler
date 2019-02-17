@@ -119,6 +119,10 @@ START_TEST(test_is_in)
 }
 END_TEST
 
+/*
+ * model tests
+ */
+
 START_TEST(test_loglik)
 {
     double tol = 1e-15;
@@ -206,6 +210,36 @@ START_TEST(test_full_conditionals_big_list)
 }
 END_TEST
 
+START_TEST(test_potential)
+{
+    double tol = 1e-12;
+    double theta[3] = { .5, .1, .4 };
+    size_t games[2][2] = { {0, 2}, {0, 1} };
+    size_t winners[2] = { 0, 1 };
+
+    double expected = -1.1*log(theta[0]) - 1.1*log(theta[1]) - .1*log(theta[2])
+                      +log(theta[0]+theta[1]) + log(theta[0]+theta[2]);
+
+    double pot = potential(2, 2, 3, theta, games, winners);
+    ck_assert_double_eq_tol(expected, pot, tol);
+}
+END_TEST
+
+START_TEST(test_potential_gradient)
+{
+    double tol = 1e-5;
+    double theta[3] = { .5, .1, .4 };
+    size_t games[2][2] = { {0, 2}, {0, 1} };
+    size_t winners[2] = { 0, 1 };
+
+    double g[2];
+    grad_potential(2, 2, 3, theta, games, winners, g);
+
+    ck_assert_double_eq_tol(g[0], -0.283333, tol);
+    ck_assert_double_eq_tol(g[1], -10.19444, tol);
+}
+END_TEST
+
 Suite * test_suite(void)
 {
     Suite *s;
@@ -243,6 +277,8 @@ Suite * test_suite(void)
     /* tcase_add_test(tc_model, test_full_conditionals_last_player_has_played); */
     /* tcase_add_test(tc_model, test_full_conditionals_last_player_has_played_2); */
     tcase_add_test(tc_model, test_full_conditionals_big_list);
+    tcase_add_test(tc_model, test_potential);
+    tcase_add_test(tc_model, test_potential_gradient);
     suite_add_tcase(s, tc_model);
 
     tc_simplex = tcase_create("Simplex");
