@@ -5,12 +5,22 @@
 #include <gsl/gsl_sf_log.h>
 #include <gsl/gsl_sf_exp.h>
 
-double sum(const double x[], const size_t length) {
+double sum(const double *x, const size_t length) {
     double sum = 0.0;
     for(size_t i = 0; i < length; i++)
         sum += x[i];
 
     return sum;
+}
+
+double max(const double *x, const size_t length) {
+    double max = GSL_NEGINF;
+    for(size_t i = 0; i < length; i++) {
+        if (x[i] > max)
+            max = x[i];
+    }
+
+    return max;
 }
 
 void ones(double *arr, const size_t length) {

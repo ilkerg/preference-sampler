@@ -101,6 +101,14 @@ START_TEST(test_sum)
 }
 END_TEST
 
+START_TEST(test_max)
+{
+    double x[3] = {1.1, 2.1, 0.07};
+    double s = max(x, 3);
+    ck_assert_double_eq(s, 2.1);
+}
+END_TEST
+
 START_TEST(test_log_sum_exp)
 {
     double tol = 1e-15;
@@ -266,6 +274,7 @@ Suite * test_suite(void)
     /* Core test case */
     tc_core = tcase_create("Core");
     tcase_add_test(tc_core, test_sum);
+    tcase_add_test(tc_core, test_max);
     tcase_add_test(tc_core, test_log_sum_exp);
     tcase_add_test(tc_core, test_is_in);
     suite_add_tcase(s, tc_core);
