@@ -83,7 +83,10 @@ unsigned int move_gibbs(const gsl_rng *r, const size_t S, const size_t M, const 
          */
         current_total = sum(theta_p, K-1) - theta_p[comp];
         /* sample a suitable value for the current component */
+/* #pragma omp critical */
+        {
         theta_p[comp] = gsl_rng_uniform_pos(r) * (1 - current_total);
+        }
         assert(theta_p[comp] > .0);
         theta_p[K-1] = 1 - sum(theta_p, K-1);
         assert(theta_p[K-1] > .0);
@@ -92,7 +95,10 @@ unsigned int move_gibbs(const gsl_rng *r, const size_t S, const size_t M, const 
         /* compute full conditional density at theta_p */
         ll_p = fullcond(S, M, K, comp, theta_p, x, y);
 
+/* #pragma omp critical */
+        {
         alpha = gsl_rng_uniform_pos(r);
+        }
         if (gsl_sf_log(alpha) < ll_p - ll) {
             /* accept */
             /* ll = ll_p; */
@@ -361,7 +367,7 @@ void sample_theta_star(const gsl_rng *r, const size_t K, double theta_star[K]) {
     double ts[K];
     /* ones(a, K); */
     for (size_t k=0; k<K; k++) {
-        a[k] = 1. / K;
+        a[k] = 10. / K;
     }
 
     gsl_ran_dirichlet(r, K, a, ts);
@@ -434,8 +440,11 @@ void sim(struct sim_context *ctx) {
 
         /* gsl_ran_choose(r, &theta_c, 1, theta, N, sizeof theta_c); */
 
-        size_t theta_sample_idx = gsl_rng_uniform_int(r, N);
+        /* size_t theta_sample_idx = gsl_rng_uniform_int(r, N); */
 
+        gsl_ran_discrete_t *g = gsl_ran_discrete_preproc(N, w);
+        size_t theta_sample_idx = gsl_ran_discrete(r, g);
+        gsl_ran_discrete_free(g);
         /*
         if(s == 0) {
             // pick one of the particles uniformly random
@@ -481,7 +490,7 @@ void sim(struct sim_context *ctx) {
         printf("\n");
 
         /* determine outcome using theta_star */
-        gsl_ran_discrete_t *g = gsl_ran_discrete_preproc(M, player_w);
+        g = gsl_ran_discrete_preproc(M, player_w);
         size_t winner = gsl_ran_discrete(r, g);
         gsl_ran_discrete_free(g);
 
@@ -502,12 +511,30 @@ void sim(struct sim_context *ctx) {
             assert(gsl_finite(w[n]) == 1);
         }
 
-        resample_move(r, N, K, s+1, M, theta, w, x, y);
-        ones(w, N);
-        zeros(logw, N);
+        double two_logw[N];
+        for (size_t n=0; n<N; n++)
+            two_logw[n] = 2*logw[n];
+
+        double ess = exp(2*log_sum_exp(logw, N) - log_sum_exp(two_logw, N));
+
+        printf("# ess = %lf\n", ess);
+
+        if (ess < .5*N) {
+            printf("# resampling at iteration %zu\n", s);
+            resample_move(r, N, K, s+1, M, theta, w, x, y);
+            ones(w, N);
+            zeros(logw, N);
+        }
 
         printf("\n");
     }
+
+    /* resample at the end  */
+    printf("# resampling at iteration %zu\n", S);
+    resample_move(r, N, K, S, M, theta, w, x, y);
+    /* no need to reset the weights at this point but just to be safe */
+    ones(w, N);
+    zeros(logw, N);
 
     for(size_t n = 0; n < N; n++) {
         to_string(theta[n], K);

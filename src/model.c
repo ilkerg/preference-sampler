@@ -81,7 +81,7 @@ double loglik(const size_t S, const size_t M, const size_t K,
             sum_theta += theta[x[s][m]];
         }
 
-        ll += gsl_sf_log(theta[y[s]]) - gsl_sf_log(sum_theta);
+        ll += log(theta[y[s]]) - log(sum_theta);
     }
 
     return ll;
@@ -90,7 +90,6 @@ double loglik(const size_t S, const size_t M, const size_t K,
 double fullcond(const size_t S, const size_t M, const size_t K, const size_t comp,
         const double theta[K], const size_t x[S][M], const size_t y[S]) {
     double ll = .0;
-    double sum_theta;
 
     for (size_t s=0; s<S; s++) {
         size_t winner = y[s];
@@ -98,14 +97,34 @@ double fullcond(const size_t S, const size_t M, const size_t K, const size_t com
             ll += log(theta[winner]);
         }
 
+        unsigned int comp_plays = 0;
+        unsigned int K_plays = 0;
+
+        for (size_t m=0; m<M; m++) {
+            if (x[s][m]==comp)
+                comp_plays = 1;
+            else if (x[s][m]==K-1)
+                K_plays = 1;
+        }
+
+        if (comp_plays != K_plays) {
+            double sum_theta = .0;
+            for (size_t m = 0; m < M; m++) {
+                sum_theta += theta[x[s][m]];
+            }
+            ll -= log(sum_theta);
+        }
+
+        /*
         if (is_in(comp, x[s], M) != is_in(K-1, x[s], M)) {
             sum_theta = .0;
             for (size_t m = 0; m < M; m++) {
                 sum_theta += theta[x[s][m]];
             }
 
-            ll -= gsl_sf_log(sum_theta);
+            ll -= log(sum_theta);
         }
+        */
     }
     return ll;
 }

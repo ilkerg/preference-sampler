@@ -43,10 +43,10 @@ double log_sum_exp(double x[], size_t length) {
     }
 
     for (i = 0; i < length; i++) {
-        sum += gsl_sf_exp(x[i] - max);
+        sum += exp(x[i] - max);
     }
 
-    return max + gsl_sf_log(sum);
+    return max + log(sum);
 }
 
 int is_in(size_t e, size_t *x, size_t length) {
