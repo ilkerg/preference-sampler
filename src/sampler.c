@@ -70,11 +70,11 @@ unsigned int move_gibbs(const gsl_rng *r, const size_t S, const size_t M, const 
     double ll, ll_p;
     double alpha = .0;
     double current_total = .0;
-    unsigned int accepted;
+    unsigned int accepted = 0;
 
     memcpy(theta_p, th, sizeof theta_p);
     for (size_t comp=0; comp<K-1; comp++) {
-        assert(gsl_fcmp(sum(theta_p, K), 1.0, 1e-10));
+        /* assert(gsl_fcmp(sum(theta_p, K), 1.0, 1e-10)); */
         ll = fullcond(S, M, K, comp, theta_p, x, y);
         /* determine current sum of all the components
          * except `comp` and the last one
@@ -87,7 +87,7 @@ unsigned int move_gibbs(const gsl_rng *r, const size_t S, const size_t M, const 
         assert(theta_p[comp] > .0);
         theta_p[K-1] = 1 - sum(theta_p, K-1);
         assert(theta_p[K-1] > .0);
-        assert(gsl_fcmp(sum(theta_p, K), 1.0, 1e-10));
+        /* assert(gsl_fcmp(sum(theta_p, K), 1.0, 1e-10)); */
         /* theta_p[K-1] -= theta_p[comp] - theta[n][comp]; */
         /* compute full conditional density at theta_p */
         ll_p = fullcond(S, M, K, comp, theta_p, x, y);
@@ -96,17 +96,17 @@ unsigned int move_gibbs(const gsl_rng *r, const size_t S, const size_t M, const 
         if (gsl_sf_log(alpha) < ll_p - ll) {
             /* accept */
             /* ll = ll_p; */
-            accepted = 1;
+            accepted |= 1;
         } else {
             /* reject */
             /* reset the proposed component back to its original value */
             theta_p[comp] = th[comp];
             theta_p[K-1] = 1 - sum(theta_p, K-1);
             assert(theta_p[K-1] >= 0);
-            accepted = 0;
+            accepted |= 0;
         }
-        memcpy(new_th, theta_p, sizeof theta_p);
     }
+    memcpy(new_th, theta_p, sizeof theta_p);
     return accepted;
 }
 
@@ -168,7 +168,7 @@ unsigned int move_dirichlet(const gsl_rng *r, const size_t S, const size_t M, co
         alpha[k] = 100*K*th[k];
     }
 
-#pragma omp critical
+//#pragma omp critical
     gsl_ran_dirichlet(r, K, alpha, th_p);
 
     for (size_t k=0; k<K; k++) {
@@ -207,13 +207,13 @@ unsigned int move_dirichlet(const gsl_rng *r, const size_t S, const size_t M, co
 unsigned int move_hamiltonian(const gsl_rng *r, const size_t S, const size_t M, const size_t K,
         const double th[K], double new_th[K], const size_t games[S][M], const size_t winners[S]) {
 
-    const size_t L = 100;
+    const size_t L = 20;
     double th_p[K];
     unsigned int accepted;
 
     double p[K-1];
     double grad[K-1];
-    double epsilon = 1e-6;
+    double epsilon;
     double e_initial = .0;
     double e_final = 0.;
 
@@ -234,8 +234,13 @@ unsigned int move_hamiltonian(const gsl_rng *r, const size_t S, const size_t M, 
     printf("# potential = %lf\n", U);
     */
 
-    // leapfrog (epsilon, L)
-    grad_potential(S, M, K, th_p, games, winners, grad);
+    /* leapfrog (epsilon, L) */
+    grad_potential(S, M, K, th, games, winners, grad);
+    double amg = fabs(max(grad, K-1));
+
+    epsilon = .05 * sqrt(.2 / amg) / K;
+    /* printf("# epsilon = %lf\n", epsilon); */
+
     for (size_t l=0; l<L; l++) {
         for (size_t k=0; k<K-1; k++) {
             /* printf("# grad[%zu] = %lf\n", k, .5*epsilon*grad[k]); */
@@ -259,25 +264,21 @@ unsigned int move_hamiltonian(const gsl_rng *r, const size_t S, const size_t M, 
         }
     }
 
+
     /*
      * if new position is out of the simplex
      * because of numerical issues
      * simply reject
      */
 
-    double sum = 0.;
     for (size_t k=0; k<K; k++) {
         if (th_p[k] < 0.) {
             memcpy(new_th, th, K*sizeof(double));
             return 0;
         }
-        sum += th_p[k];
-        if (sum > 1.0) {
-            memcpy(new_th, th, K*sizeof(double));
-            return 0;
-        }
     }
 
+    assert(gsl_fcmp(sum(th_p, K), 1.0, 1e-15) == 0);
 
     // final total energy
     for (size_t k=0; k<K-1; k++)
@@ -293,6 +294,7 @@ unsigned int move_hamiltonian(const gsl_rng *r, const size_t S, const size_t M, 
      */
 
 
+    /*
     printf("# e_initial = %lf\n", e_initial);
     printf("# e_final = %lf\n", e_final);
     printf("# th_p = ");
@@ -302,6 +304,7 @@ unsigned int move_hamiltonian(const gsl_rng *r, const size_t S, const size_t M, 
     printf("# p = ");
     to_string(p, K-1);
     printf("\n");
+    */
 
     assert(gsl_finite(e_initial) == 1);
     assert(gsl_finite(e_final) == 1);
@@ -335,12 +338,12 @@ void resample_move(const gsl_rng *r, const size_t N, const size_t K, const size_
         if (cnt[n] == 0)
             continue;
 
-#pragma omp parallel for reduction(+:accepted)
+/* #pragma omp parallel for reduction(+:accepted) */
         for (size_t i=0; i < cnt[n]; i++) {
-            //accepted += move_gibbs(r, S, M, K, theta[n], theta_new[n_new+i], x, y);
-            //accepted += move_simplex_transform(r, S, M, K, theta[n], theta_new[n_new+i], x, y);
-            //accepted += move_dirichlet(r, S, M, K, theta[n], theta_new[n_new+i], x, y);
-            accepted += move_hamiltonian(r, S, M, K, theta[n], theta_new[n_new+i], x, y);
+            accepted += move_gibbs(r, S, M, K, theta[n], theta_new[n_new+i], x, y);
+            /* accepted += move_simplex_transform(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
+            /* accepted += move_dirichlet(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
+            /* accepted += move_hamiltonian(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
         }
         n_new+=cnt[n];
     }
@@ -358,7 +361,7 @@ void sample_theta_star(const gsl_rng *r, const size_t K, double theta_star[K]) {
     double ts[K];
     /* ones(a, K); */
     for (size_t k=0; k<K; k++) {
-        a[k] = 10. / K;
+        a[k] = 1. / K;
     }
 
     gsl_ran_dirichlet(r, K, a, ts);
@@ -383,7 +386,7 @@ void sim(struct sim_context *ctx) {
     double *theta_star = ctx->theta_star;
 
     double (*theta)[K] = malloc(N * sizeof *theta);
-    double theta_c[K];
+    /* double theta_c[K]; */
     size_t (*x)[M] = malloc(S * sizeof *x);
     size_t *y = malloc(S * sizeof(size_t));
 
@@ -405,7 +408,7 @@ void sim(struct sim_context *ctx) {
 
     for(size_t s = 0; s < S; s++) {
         fprintf(stderr, "s = %zu\r", s);
-#pragma omp parallel for
+//#pragma omp parallel for
         for(size_t n=0; n<N; n++) {
             double smm = sum(theta[n], K);
             //fprintf(stderr, "%.30lf\n", smm);
@@ -428,7 +431,11 @@ void sim(struct sim_context *ctx) {
         /*
          * sample a theta from the current posterior
          */
-        gsl_ran_choose(r, &theta_c, 1, theta, N, sizeof theta_c);
+
+        /* gsl_ran_choose(r, &theta_c, 1, theta, N, sizeof theta_c); */
+
+        size_t theta_sample_idx = gsl_rng_uniform_int(r, N);
+
         /*
         if(s == 0) {
             // pick one of the particles uniformly random
@@ -444,7 +451,8 @@ void sim(struct sim_context *ctx) {
         */
 
         printf("# sampled theta: ");
-        to_string(theta_c, K);
+        /* to_string(theta_c, K); */
+        to_string(theta[theta_sample_idx], K);
         printf("\n");
 
         /*
@@ -455,7 +463,8 @@ void sim(struct sim_context *ctx) {
          */
         size_t players[M];
         double player_w[M];
-        gsl_sort_largest_index(players, M, theta_c, 1, K);
+        /* gsl_sort_largest_index(players, M, theta_c, 1, K); */
+        gsl_sort_largest_index(players, M, theta[theta_sample_idx], 1, K);
 
         memcpy(x[s], players, sizeof players);
 
@@ -467,6 +476,10 @@ void sim(struct sim_context *ctx) {
         printf("%zu\n", players[M-1]);
         player_w[M-1] = theta_star[players[M-1]];
 
+        printf("# player weights = ");
+        to_string(player_w, M);
+        printf("\n");
+
         /* determine outcome using theta_star */
         gsl_ran_discrete_t *g = gsl_ran_discrete_preproc(M, player_w);
         size_t winner = gsl_ran_discrete(r, g);
@@ -476,7 +489,7 @@ void sim(struct sim_context *ctx) {
         printf("# winner: %zu\n", y[s]);
 
         /* update weights */
-#pragma omp parallel for
+//#pragma omp parallel for
         for(size_t n = 0; n < N; n++) {
             double theta_winner = theta[n][players[winner]];
             double sum_theta = 0;
