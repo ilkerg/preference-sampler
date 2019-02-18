@@ -168,13 +168,11 @@ START_TEST(test_full_conditionals_last_player_has_played)
     size_t x[2][2] = { {0, 1}, {0, 2} };
     size_t y[2] = { 0, 0 };
 
-    double ll0_expected = log(theta[0]) - log(theta[0] + theta[1])
-                        + log(theta[0]) - log(theta[0] + 1 - theta[0] - theta[1]);
+    double ll0_expected = 2*log(theta[0]) - log(theta[0] + theta[1]);
     double ll0 = fullcond(2, 2, 3, 0, theta, x, y);
     ck_assert_double_eq_tol(ll0_expected, ll0, tol);
 
-    double ll1_expected = -log(theta[0] + theta[1])
-                         - log(theta[0] + 1 - theta[0] - theta[1]);
+    double ll1_expected = -log(theta[0] + theta[1]) - log(1 - theta[1]);
     double ll1 = fullcond(2, 2, 3, 1, theta, x, y);
     ck_assert_double_eq_tol(ll1_expected, ll1, tol);
 }
@@ -187,11 +185,11 @@ START_TEST(test_full_conditionals_last_player_has_played_2)
     size_t x[3][2] = { {0, 1}, {0, 1}, {0, 2} };
     size_t y[3] = { 0, 1, 0 };
 
-    double ll0_expected = 2 * log(theta[0]) - 2 * log(theta[0] + theta[1]) - log(theta[0] + theta[2]);
+    double ll0_expected = 2*log(theta[0]) - 2*log(theta[0] + theta[1]);
     double ll0 = fullcond(3, 2, 3, 0, theta, x, y);
     ck_assert_double_eq_tol(ll0_expected, ll0, tol);
 
-    double ll1_expected = log(theta[1]) - 2 * log(theta[0] + theta[1]) - log(theta[0] + theta[2]);
+    double ll1_expected = log(theta[1]) - 2*log(theta[0] + theta[1]) - log(1-theta[1]);
     double ll1 = fullcond(3, 2, 3, 1, theta, x, y);
     ck_assert_double_eq_tol(ll1_expected, ll1, tol);
 }
@@ -215,6 +213,27 @@ START_TEST(test_full_conditionals_big_list)
                          -2 * log(theta[0] + theta[1]) - 5 * log(1-theta[1]);
     double ll1 = fullcond(10, 2, 3, 1, theta, x, y);
     ck_assert_double_eq_tol(ll1_expected, ll1, tol);
+}
+END_TEST
+
+START_TEST(test_full_conditionals_bigger_simplex) {
+    double tol = 1e-12;
+    double theta[4] = { .4, .3, .2, .1 };
+    size_t x[3][2] = { {0, 1}, {1, 3}, {0, 2} };
+    size_t y[3] = { 0, 1, 0 };
+
+    double ll0_expected = 2*log(theta[0]) - log(theta[0] + theta[1])
+                        - log(1-theta[0]-theta[2]) - log(theta[0] + theta[2]);
+    double ll0 = fullcond(3, 2, 4, 0, theta, x, y);
+    ck_assert_double_eq_tol(ll0_expected, ll0, tol);
+
+    double ll1_expected = log(theta[1]) - log(theta[0] + theta[1]);
+    double ll1 = fullcond(3, 2, 4, 1, theta, x, y);
+    ck_assert_double_eq_tol(ll1_expected, ll1, tol);
+
+    double ll2_expected = -log(1-theta[0]-theta[2]) - log(theta[0]+theta[2]);
+    double ll2 = fullcond(3, 2, 4, 2, theta, x, y);
+    ck_assert_double_eq_tol(ll2_expected, ll2, tol);
 }
 END_TEST
 
@@ -282,10 +301,11 @@ Suite * test_suite(void)
     /* Model test case */
     tc_model = tcase_create("Model");
     tcase_add_test(tc_model, test_loglik);
-    /* tcase_add_test(tc_model, test_full_conditionals_last_player_didnt_play); */
-    /* tcase_add_test(tc_model, test_full_conditionals_last_player_has_played); */
-    /* tcase_add_test(tc_model, test_full_conditionals_last_player_has_played_2); */
+    tcase_add_test(tc_model, test_full_conditionals_last_player_didnt_play);
+    tcase_add_test(tc_model, test_full_conditionals_last_player_has_played);
+    tcase_add_test(tc_model, test_full_conditionals_last_player_has_played_2);
     tcase_add_test(tc_model, test_full_conditionals_big_list);
+    tcase_add_test(tc_model, test_full_conditionals_bigger_simplex);
     tcase_add_test(tc_model, test_potential);
     tcase_add_test(tc_model, test_potential_gradient);
     suite_add_tcase(s, tc_model);

@@ -93,11 +93,9 @@ double fullcond(const size_t S, const size_t M, const size_t K, const size_t com
     double sum_theta;
 
     for (size_t s=0; s<S; s++) {
-        if (y[s] == comp) {
-            ll += gsl_sf_log(theta[comp]);
-        }
-        else if (y[s] == K-1) {
-            ll += gsl_sf_log(theta[K-1]);
+        size_t winner = y[s];
+        if (winner == comp || winner == K-1) {
+            ll += log(theta[winner]);
         }
 
         if (is_in(comp, x[s], M) != is_in(K-1, x[s], M)) {
