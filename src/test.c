@@ -11,7 +11,6 @@
 START_TEST(test_simplex_transform)
 {
     double tol = 1e-15;
-    const size_t K=3;
     double th[K];
     double th_bar[K];
     double y[K-1];
@@ -19,8 +18,8 @@ START_TEST(test_simplex_transform)
     for(size_t k=0; k<K; k++)
         th[k] = 1. / K;
 
-    transform(K, th, y);
-    inverse_transform(K, y, th_bar);
+    transform(th, y);
+    inverse_transform(y, th_bar);
 
     for(size_t k=0; k<K-1; k++)
         ck_assert_double_eq_tol(y[k], 0., tol);
@@ -78,7 +77,7 @@ START_TEST(test_loglik)
     size_t y[4] = { 0, 0, 0, 2 };
 
     double ll_expected = 3 * (log(0.5) - log(0.5 + 0.3)) + (log(0.2) - log(0.5 + 0.2));
-    double ll = loglik(4, 2, 3, theta, x, y);
+    double ll = loglik(theta, x, y);
     ck_assert_double_eq_tol(ll_expected, ll, tol);
 }
 END_TEST
@@ -91,11 +90,11 @@ START_TEST(test_full_conditionals_last_player_didnt_play)
     size_t y[1] = { 0 };
 
     double ll0_expected = log(theta[0]) - log(theta[0] + theta[1]);
-    double ll0 = fullcond(1, 2, 3, 0, theta, x, y);
+    double ll0 = fullcond(0, theta, x, y);
     ck_assert_double_eq_tol(ll0_expected, ll0, tol);
 
     double ll1_expected = -log(theta[0] + theta[1]);
-    double ll1 = fullcond(1, 2, 3, 1, theta, x, y);
+    double ll1 = fullcond(1, theta, x, y);
     ck_assert_double_eq_tol(ll1_expected, ll1, tol);
 }
 END_TEST
@@ -108,11 +107,11 @@ START_TEST(test_full_conditionals_last_player_has_played)
     size_t y[2] = { 0, 0 };
 
     double ll0_expected = 2*log(theta[0]) - log(theta[0] + theta[1]);
-    double ll0 = fullcond(2, 2, 3, 0, theta, x, y);
+    double ll0 = fullcond(0, theta, x, y);
     ck_assert_double_eq_tol(ll0_expected, ll0, tol);
 
     double ll1_expected = -log(theta[0] + theta[1]) - log(1 - theta[1]);
-    double ll1 = fullcond(2, 2, 3, 1, theta, x, y);
+    double ll1 = fullcond(1, theta, x, y);
     ck_assert_double_eq_tol(ll1_expected, ll1, tol);
 }
 END_TEST
@@ -125,11 +124,11 @@ START_TEST(test_full_conditionals_last_player_has_played_2)
     size_t y[3] = { 0, 1, 0 };
 
     double ll0_expected = 2*log(theta[0]) - 2*log(theta[0] + theta[1]);
-    double ll0 = fullcond(3, 2, 3, 0, theta, x, y);
+    double ll0 = fullcond(0, theta, x, y);
     ck_assert_double_eq_tol(ll0_expected, ll0, tol);
 
     double ll1_expected = log(theta[1]) - 2*log(theta[0] + theta[1]) - log(1-theta[1]);
-    double ll1 = fullcond(3, 2, 3, 1, theta, x, y);
+    double ll1 = fullcond(1, theta, x, y);
     ck_assert_double_eq_tol(ll1_expected, ll1, tol);
 }
 END_TEST
@@ -145,17 +144,18 @@ START_TEST(test_full_conditionals_big_list)
 
     double ll0_expected = 2 * log(theta[0]) + 4 * log(1-theta[0]-theta[1])
                          -2 * log(theta[0] + theta[1]) - 3 * log(1 - theta[0]);
-    double ll0 = fullcond(10, 2, 3, 0, theta, x, y);
+    double ll0 = fullcond(0, theta, x, y);
     ck_assert_double_eq_tol(ll0_expected, ll0, tol);
 
     double ll1_expected = 4 * log(theta[1]) + 4 * log(1 - theta[0] - theta[1])
                          -2 * log(theta[0] + theta[1]) - 5 * log(1-theta[1]);
-    double ll1 = fullcond(10, 2, 3, 1, theta, x, y);
+    double ll1 = fullcond(1, theta, x, y);
     ck_assert_double_eq_tol(ll1_expected, ll1, tol);
 }
 END_TEST
 
-START_TEST(test_full_conditionals_bigger_simplex) {
+START_TEST(test_full_conditionals_bigger_simplex)
+{
     double tol = 1e-12;
     double theta[4] = { .4, .3, .2, .1 };
     size_t x[3][2] = { {0, 1}, {1, 3}, {0, 2} };
@@ -163,15 +163,15 @@ START_TEST(test_full_conditionals_bigger_simplex) {
 
     double ll0_expected = 2*log(theta[0]) - log(theta[0] + theta[1])
                         - log(1-theta[0]-theta[2]) - log(theta[0] + theta[2]);
-    double ll0 = fullcond(3, 2, 4, 0, theta, x, y);
+    double ll0 = fullcond(0, theta, x, y);
     ck_assert_double_eq_tol(ll0_expected, ll0, tol);
 
     double ll1_expected = log(theta[1]) - log(theta[0] + theta[1]);
-    double ll1 = fullcond(3, 2, 4, 1, theta, x, y);
+    double ll1 = fullcond(1, theta, x, y);
     ck_assert_double_eq_tol(ll1_expected, ll1, tol);
 
     double ll2_expected = -log(1-theta[0]-theta[2]) - log(theta[0]+theta[2]);
-    double ll2 = fullcond(3, 2, 4, 2, theta, x, y);
+    double ll2 = fullcond(2, theta, x, y);
     ck_assert_double_eq_tol(ll2_expected, ll2, tol);
 }
 END_TEST
@@ -186,7 +186,7 @@ START_TEST(test_potential)
     double expected = -1.1*log(theta[0]) - 1.1*log(theta[1]) - .1*log(theta[2])
                       +log(theta[0]+theta[1]) + log(theta[0]+theta[2]);
 
-    double pot = potential(2, 2, 3, theta, games, winners);
+    double pot = potential(theta, games, winners);
     ck_assert_double_eq_tol(expected, pot, tol);
 }
 END_TEST
@@ -199,7 +199,7 @@ START_TEST(test_potential_gradient)
     size_t winners[2] = { 0, 1 };
 
     double g[2];
-    grad_potential(2, 2, 3, theta, games, winners, g);
+    grad_potential(theta, games, winners, g);
 
     ck_assert_double_eq_tol(g[0], -0.283333, tol);
     ck_assert_double_eq_tol(g[1], -10.19444, tol);

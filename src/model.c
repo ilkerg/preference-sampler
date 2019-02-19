@@ -4,18 +4,13 @@
 #include <gsl/gsl_sf_log.h>
 #include <gsl/gsl_sf_exp.h>
 
+#include "model.h"
 #include "helpers.h"
 
-/*
- * S: number of games
- * M: number of players in each game (subset size)
- * K: total number of players
- * x[s]: M-dimensional vector containing player indices of game s
- * y[s]: winner of game s
- */
-
-double potential(const size_t S, const size_t M, const size_t K,
-        const double theta[K], const size_t games[S][M], const size_t winners[S]) {
+double
+potential(const double theta[K], const size_t games[S][M],
+          const size_t winners[S])
+{
     double V = .0;
 
     for (size_t k=0; k<K; k++)
@@ -33,10 +28,10 @@ double potential(const size_t S, const size_t M, const size_t K,
     return V;
 }
 
-void grad_potential(const size_t S, const size_t M, const size_t K,
-        const double theta[K], const size_t games[S][M], const size_t winners[S],
-        double grad[K-1]) {
-
+void
+grad_potential(const double theta[K], const size_t games[S][M],
+               const size_t winners[S], double grad[K-1])
+{
     // initialize grad components
     for (size_t k=0; k<K-1; k++)
         grad[k] = -.1 / theta[k] + .1 / theta[K-1];
@@ -69,8 +64,9 @@ void grad_potential(const size_t S, const size_t M, const size_t K,
     }
 }
 
-double loglik(const size_t S, const size_t M, const size_t K,
-        const double theta[K], const size_t x[S][M], const size_t y[S]) {
+double
+loglik(const double theta[K], const size_t x[S][M], const size_t y[S])
+{
     size_t s, m;
     double ll = 0.;
     double sum_theta;
@@ -87,8 +83,10 @@ double loglik(const size_t S, const size_t M, const size_t K,
     return ll;
 }
 
-double fullcond(const size_t S, const size_t M, const size_t K, const size_t comp,
-        const double theta[K], const size_t x[S][M], const size_t y[S]) {
+double
+fullcond(const size_t comp, const double theta[K], const size_t x[S][M],
+         const size_t y[S])
+{
     double ll = .0;
 
     for (size_t s=0; s<S; s++) {
@@ -128,3 +126,4 @@ double fullcond(const size_t S, const size_t M, const size_t K, const size_t com
     }
     return ll;
 }
+

@@ -1,5 +1,3 @@
-#include "simplex.h"
-
 #include <stdio.h>
 #include <assert.h>
 #include <math.h>
@@ -7,9 +5,11 @@
 #include <gsl/gsl_sf_exp.h>
 #include <gsl/gsl_math.h>
 
+#include "simplex.h"
 
-void transform(const size_t K, const double th[K], double y[K-1]) {
-    //double s = 1.0;
+void
+transform(const double th[K], double y[K-1])
+{
     double sum = 0.;
 
     size_t Km1 = K-1;
@@ -20,7 +20,9 @@ void transform(const size_t K, const double th[K], double y[K-1]) {
     }
 }
 
-void inverse_transform(const size_t K, const double y[K-1], double th[K]) {
+void
+inverse_transform(const double y[K-1], double th[K])
+{
     double z;
     // double s = 1.;
     double sum = 0.;
@@ -60,19 +62,6 @@ void inverse_transform(const size_t K, const double y[K-1], double th[K]) {
     */
 
     th[Km1] = (1.0 - sum);
-
-    double smm = 0.;
-    for (size_t k=0; k<K; k++) {
-        smm += th[k];
-    }
-    if(fabs(smm - 1.) > 1e-3) {
-        for (size_t k=0; k<Km1; k++) {
-            fprintf(stderr, "y[%zu] = %.30lf\n", k, y[k]);
-            fprintf(stderr, "th[%zu] = %.30lf\n", k, th[k]);
-        }
-        fprintf(stderr, "sum th = %.30lf\n", smm);
-        exit(1);
-    }
     //assert(fabs(smm - 1.0) < 1e-3);
 }
 

@@ -3,20 +3,22 @@
 #include <string.h>
 #include <assert.h>
 #include <math.h>
+#include <float.h>
 
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_sort.h>
-#include <gsl/gsl_sf.h>
-#include <gsl/gsl_statistics.h>
-#include <gsl/gsl_math.h>
-
-#include <getopt.h>
 
 #ifdef _OPENMP
 #include <omp.h>
 #endif
 
+const size_t N=1000;
+const size_t S=10;
+const size_t K=4;
+const size_t M=2;
+
+//#include "constants.h"
 #include "helpers.h"
 #include "model.h"
 #include "simplex.h"
@@ -29,43 +31,10 @@
     printf("%lf", arr[k-1]);
 
 
-void usage() {
-    printf("\n");
-    printf("Usage: sampler [options]\n");
-    printf("    -h Show this help \n");
-    printf("    -v Verbose output \n");
-    printf("\n");
-    printf("    -k INT (default = 3)        number of dimensions of the simplex\n");
-    printf("    -n INT (default = 1000)     number of particles\n");
-    printf("    -s INT (default = 100)      number of simulation steps\n");
-    printf("    -m INT (default = 2)        subset size\n");
-    printf("    -a K-vector (default = ones(K)) prior\n");
-    printf("\n");
-}
-
-struct opt {
-    size_t k;
-    size_t n;
-    size_t s;
-    size_t m;
-    int verbose;
-    double *alpha;
-};
-
-struct sim_context {
-    const gsl_rng *r;
-    int n;
-    int k;
-    int s;
-    int m;
-    int verbose;
-    double *alpha;
-    double *theta_star;
-};
-
-
-unsigned int move_gibbs(const gsl_rng *r, const size_t S, const size_t M, const size_t K,
-        const double th[K], double new_th[K], const size_t x[S][M], const size_t y[S]) {
+unsigned int
+move_gibbs(const gsl_rng *r, const double th[K], double new_th[K],
+           const size_t x[S][M], const size_t y[S])
+{
     double theta_p[K];
     double ll, ll_p;
     double alpha = .0;
@@ -75,7 +44,7 @@ unsigned int move_gibbs(const gsl_rng *r, const size_t S, const size_t M, const 
     memcpy(theta_p, th, sizeof theta_p);
     for (size_t comp=0; comp<K-1; comp++) {
         /* assert(gsl_fcmp(sum(theta_p, K), 1.0, 1e-10)); */
-        ll = fullcond(S, M, K, comp, theta_p, x, y);
+        ll = fullcond(comp, theta_p, x, y);
         /* determine current sum of all the components
          * except `comp` and the last one
          * because the last component is chosen to be
@@ -83,23 +52,16 @@ unsigned int move_gibbs(const gsl_rng *r, const size_t S, const size_t M, const 
          */
         current_total = sum(theta_p, K-1) - theta_p[comp];
         /* sample a suitable value for the current component */
-/* #pragma omp critical */
-        {
         theta_p[comp] = gsl_rng_uniform_pos(r) * (1 - current_total);
-        }
         assert(theta_p[comp] > .0);
         theta_p[K-1] = 1 - sum(theta_p, K-1);
         assert(theta_p[K-1] > .0);
-        /* assert(gsl_fcmp(sum(theta_p, K), 1.0, 1e-10)); */
-        /* theta_p[K-1] -= theta_p[comp] - theta[n][comp]; */
-        /* compute full conditional density at theta_p */
-        ll_p = fullcond(S, M, K, comp, theta_p, x, y);
 
-/* #pragma omp critical */
-        {
+        /* compute full conditional density at theta_p */
+        ll_p = fullcond(comp, theta_p, x, y);
+
         alpha = gsl_rng_uniform_pos(r);
-        }
-        if (gsl_sf_log(alpha) < ll_p - ll) {
+        if (log(alpha) < ll_p - ll) {
             /* accept */
             /* ll = ll_p; */
             accepted |= 1;
@@ -116,24 +78,25 @@ unsigned int move_gibbs(const gsl_rng *r, const size_t S, const size_t M, const 
     return accepted;
 }
 
-unsigned int move_simplex_transform(const gsl_rng *r, const size_t S, const size_t M, const size_t K,
-        const double th[K], double new_th[K], const size_t games[S][M], const size_t winners[S]) {
+unsigned int
+move_simplex_transform(const gsl_rng *r, const double th[K], double new_th[K],
+                       const size_t games[S][M], const size_t winners[S])
+{
     unsigned int accepted;
 
-    // forward transform
+    /* forward transform */
     double y[K-1];
     double y_prime[K-1];
     double th_p[K];
-    transform(K, th, y);
+    transform(th, y);
 
-    // move
+    /* move */
     gsl_vector *mu = gsl_vector_alloc(K-1);
     gsl_vector *res = gsl_vector_alloc(K-1);
     for(size_t k=0; k<K-1; k++)
         gsl_vector_set(mu, k, y[k]);
     gsl_matrix *sigma = gsl_matrix_alloc(K-1, K-1);
     gsl_matrix_set_identity(sigma);
-    //gsl_matrix_scale(sigma, 1);
 
     gsl_ran_multivariate_gaussian(r, mu, sigma, res);
     memcpy(y_prime, res->data, sizeof y_prime);
@@ -142,15 +105,15 @@ unsigned int move_simplex_transform(const gsl_rng *r, const size_t S, const size
     gsl_vector_free(mu);
     gsl_vector_free(res);
 
-    // inverse transform
-    inverse_transform(K, y_prime, th_p);
+    /* inverse transform */
+    inverse_transform(y_prime, th_p);
 
-    // accept-reject
-    double ll = loglik(S, M, K, th, games, winners);
-    double ll_p = loglik(S, M, K, th_p, games, winners);
+    /* accept-reject */
+    double ll = loglik(th, games, winners);
+    double ll_p = loglik(th_p, games, winners);
 
     double alpha = gsl_rng_uniform_pos(r);
-    if (gsl_sf_log(alpha) < ll_p - ll) {
+    if (log(alpha) < ll_p - ll) {
         /* accept */
         memcpy(new_th, th_p, K*sizeof(double));
         accepted = 1;
@@ -164,8 +127,10 @@ unsigned int move_simplex_transform(const gsl_rng *r, const size_t S, const size
 }
 
 
-unsigned int move_dirichlet(const gsl_rng *r, const size_t S, const size_t M, const size_t K,
-        const double th[K], double new_th[K], const size_t games[S][M], const size_t winners[S]) {
+unsigned int
+move_dirichlet(const gsl_rng *r, const double th[K], double new_th[K],
+               const size_t games[S][M], const size_t winners[S])
+{
     double th_p[K];
     unsigned int accepted;
 
@@ -182,9 +147,9 @@ unsigned int move_dirichlet(const gsl_rng *r, const size_t S, const size_t M, co
             th_p[k] = DBL_MIN;
     }
 
-    // accept-reject
-    double ll = loglik(S, M, K, th, games, winners);
-    double ll_p = loglik(S, M, K, th_p, games, winners);
+    /* accept-reject */
+    double ll = loglik(th, games, winners);
+    double ll_p = loglik(th_p, games, winners);
 
     double alpha_p[K];
     for (size_t k=0; k<K; k++) {
@@ -198,7 +163,7 @@ unsigned int move_dirichlet(const gsl_rng *r, const size_t S, const size_t M, co
     assert(gsl_finite(ll_p) == 1);
 
     double a = gsl_rng_uniform_pos(r);
-    if (gsl_sf_log(a) < ll_p - ll + t_yx - t_xy) {
+    if (log(a) < ll_p - ll + t_yx - t_xy) {
         /* accept */
         memcpy(new_th, th_p, K*sizeof(double));
         accepted = 1;
@@ -210,9 +175,10 @@ unsigned int move_dirichlet(const gsl_rng *r, const size_t S, const size_t M, co
     return accepted;
 }
 
-unsigned int move_hamiltonian(const gsl_rng *r, const size_t S, const size_t M, const size_t K,
-        const double th[K], double new_th[K], const size_t games[S][M], const size_t winners[S]) {
-
+unsigned int
+move_hamiltonian(const gsl_rng *r, const double th[K], double new_th[K],
+                 const size_t games[S][M], const size_t winners[S])
+{
     const size_t L = 20;
     double th_p[K];
     unsigned int accepted;
@@ -225,45 +191,30 @@ unsigned int move_hamiltonian(const gsl_rng *r, const size_t S, const size_t M, 
 
     memcpy(th_p, th, K*sizeof(double));
 
-    // sample momentum
+    /* sample momentum */
     for (size_t k=0; k<K-1; k++) {
         p[k] = gsl_ran_gaussian(r, 1.);
         e_initial += .5 * p[k] * p[k];
     }
-    double U = potential(S, M, K, th, games, winners);
+    double U = potential(th, games, winners);
     e_initial += U;
 
-    /*
-    printf("# theta = ");
-    to_string(th_p, K);
-    printf("\n");
-    printf("# potential = %lf\n", U);
-    */
-
     /* leapfrog (epsilon, L) */
-    grad_potential(S, M, K, th, games, winners, grad);
+    grad_potential(th, games, winners, grad);
     double amg = fabs(max(grad, K-1));
 
     epsilon = .05 * sqrt(.2 / amg) / K;
-    /* printf("# epsilon = %lf\n", epsilon); */
 
     for (size_t l=0; l<L; l++) {
         for (size_t k=0; k<K-1; k++) {
-            /* printf("# grad[%zu] = %lf\n", k, .5*epsilon*grad[k]); */
             p[k] -= .5*epsilon*grad[k];
             th_p[k] += epsilon*p[k];
         }
 
-        // update implicit coordinate of th_p
+        /* update implicit coordinate of th_p */
         th_p[K-1] = 1. - sum(th_p, K-1);
 
-        /*
-        printf("# p [%zu] = ", l);
-        to_string(p, K-1);
-        printf("\n");
-        */
-
-        grad_potential(S, M, K, th_p, games, winners, grad);
+        grad_potential(th_p, games, winners, grad);
 
         for (size_t k=0; k<K-1; k++) {
             p[k] -= .5*epsilon*grad[k];
@@ -276,7 +227,6 @@ unsigned int move_hamiltonian(const gsl_rng *r, const size_t S, const size_t M, 
      * because of numerical issues
      * simply reject
      */
-
     for (size_t k=0; k<K; k++) {
         if (th_p[k] < 0.) {
             memcpy(new_th, th, K*sizeof(double));
@@ -286,38 +236,19 @@ unsigned int move_hamiltonian(const gsl_rng *r, const size_t S, const size_t M, 
 
     assert(gsl_fcmp(sum(th_p, K), 1.0, 1e-15) == 0);
 
-    // final total energy
+    /* final total energy */
     for (size_t k=0; k<K-1; k++)
         e_final += .5 * p[k] * p[k];
 
-    U = potential(S, M, K, th_p, games, winners);
+    U = potential(th_p, games, winners);
     e_final += U;
 
-    /* printf("# potential = %lf\n", U); */
-
-    /*
-     * accept-reject
-     */
-
-
-    /*
-    printf("# e_initial = %lf\n", e_initial);
-    printf("# e_final = %lf\n", e_final);
-    printf("# th_p = ");
-    to_string(th_p, K);
-    printf("\n");
-
-    printf("# p = ");
-    to_string(p, K-1);
-    printf("\n");
-    */
-
+    /* accept-reject */
     assert(gsl_finite(e_initial) == 1);
     assert(gsl_finite(e_final) == 1);
-    /* assert(gsl_fcmp(e_initial, e_final, 1e-3) == 0); */
 
     double a = gsl_rng_uniform_pos(r);
-    if (gsl_sf_log(a) < e_final - e_initial) {
+    if (log(a) < e_final - e_initial) {
         /* accept */
         memcpy(new_th, th_p, K*sizeof(double));
         accepted = 1;
@@ -330,9 +261,11 @@ unsigned int move_hamiltonian(const gsl_rng *r, const size_t S, const size_t M, 
 
     return accepted;
 }
-void resample_move(const gsl_rng *r, const size_t N, const size_t K, const size_t S, const size_t M,
-        double theta[N][K], const double w[N], const size_t x[S][M], const size_t y[S]) {
 
+void
+resample_move(const gsl_rng *r, double theta[N][K], const double w[N],
+              const size_t s, const size_t x[s][M], const size_t y[s])
+{
     unsigned int cnt[N];
     size_t accepted = 0;
 
@@ -346,7 +279,7 @@ void resample_move(const gsl_rng *r, const size_t N, const size_t K, const size_
 
 /* #pragma omp parallel for reduction(+:accepted) */
         for (size_t i=0; i < cnt[n]; i++) {
-            accepted += move_gibbs(r, S, M, K, theta[n], theta_new[n_new+i], x, y);
+            accepted += move_gibbs(r, theta[n], theta_new[n_new+i], x, y);
             /* accepted += move_simplex_transform(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
             /* accepted += move_dirichlet(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
             /* accepted += move_hamiltonian(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
@@ -362,7 +295,9 @@ void resample_move(const gsl_rng *r, const size_t N, const size_t K, const size_
     free(theta_new);
 }
 
-void sample_theta_star(const gsl_rng *r, const size_t K, double theta_star[K]) {
+void
+sample_theta_star(const gsl_rng *r, double theta_star[K])
+{
     double a[K];
     double ts[K];
     /* ones(a, K); */
@@ -377,20 +312,13 @@ void sample_theta_star(const gsl_rng *r, const size_t K, double theta_star[K]) {
     gsl_sort_largest(theta_star, K, ts, 1, K);
 }
 
-void sim(struct sim_context *ctx) {
+void
+sim(const gsl_rng *r, const double theta_star[K])
+{
     /*
      * theta stores current particles
      * which represent current posterior density
-     *
      */
-    const gsl_rng *r = ctx->r;
-    size_t N = ctx->n;
-    size_t K = ctx->k;
-    size_t S = ctx->s;
-    size_t M = ctx->m;
-    double *alpha = ctx->alpha;
-    double *theta_star = ctx->theta_star;
-
     double (*theta)[K] = malloc(N * sizeof *theta);
     /* double theta_c[K]; */
     size_t (*x)[M] = malloc(S * sizeof *x);
@@ -407,9 +335,13 @@ void sim(struct sim_context *ctx) {
     printf("# seed = %lu\n", gsl_rng_default_seed);
     printf("\n");
 
-    /* sample N particles from the prior */
-    for (size_t n = 0; n < N; n++) {
-        gsl_ran_dirichlet(r, K, alpha, theta[n]);
+    /* sample N particles from the `uniform` prior */
+    {
+        double alpha[K];
+        ones(alpha, K);
+        for (size_t n = 0; n < N; n++) {
+            gsl_ran_dirichlet(r, K, alpha, theta[n]);
+        }
     }
 
     for(size_t s = 0; s < S; s++) {
@@ -417,62 +349,22 @@ void sim(struct sim_context *ctx) {
 //#pragma omp parallel for
         for(size_t n=0; n<N; n++) {
             double smm = sum(theta[n], K);
-            //fprintf(stderr, "%.30lf\n", smm);
             assert(gsl_finite(smm) == 1);
             assert(gsl_fcmp(smm, 1.0, 1e-10) == 0);
-            /*
-            double smm = sum(theta[n], K);
-            fprintf(stderr, "s=%zu, n=%zu\n", s, n);
-            fprintf(stderr, "%.16lf\n", smm);
-            assert(fabs(smm - 1.0) < 1e-5);
-            */
-            /*
-            double sm = sum(theta[n], K);
-            if(fabs(sm - 1.0) > 1e-3) {
-                fprintf(stderr, "\nsum of theta[%zu] at iteration %zu is %lf\n", n, s, sm);
-                exit(1);
-            }
-            */
         }
-        /*
-         * sample a theta from the current posterior
-         */
 
-        /* gsl_ran_choose(r, &theta_c, 1, theta, N, sizeof theta_c); */
-
-        /* size_t theta_sample_idx = gsl_rng_uniform_int(r, N); */
-
+        /* sample a theta from the current posterior */
         gsl_ran_discrete_t *g = gsl_ran_discrete_preproc(N, w);
         size_t theta_sample_idx = gsl_ran_discrete(r, g);
         gsl_ran_discrete_free(g);
-        /*
-        if(s == 0) {
-            // pick one of the particles uniformly random
-            // as they all have equal weight initially
-            gsl_ran_choose(r, &theta_c, 1, theta, N, sizeof theta_c);
-        } else {
-            // sample one of the particles according to their weights
-            gsl_ran_discrete_t *g = gsl_ran_discrete_preproc(N, w);
-            size_t j = gsl_ran_discrete(r, g);
-            memcpy(theta_c, theta[j], sizeof theta_c);
-            gsl_ran_discrete_free(g);
-        }
-        */
 
         printf("# sampled theta: ");
-        /* to_string(theta_c, K); */
         to_string(theta[theta_sample_idx], K);
         printf("\n");
 
-        /*
-         *
-         * pick M elmeents from theta_c
-         * need to employ a strategy here
-         *
-         */
+        /* pick M elments from theta_c */
         size_t players[M];
         double player_w[M];
-        /* gsl_sort_largest_index(players, M, theta_c, 1, K); */
         gsl_sort_largest_index(players, M, theta[theta_sample_idx], 1, K);
 
         memcpy(x[s], players, sizeof players);
@@ -505,9 +397,9 @@ void sim(struct sim_context *ctx) {
             for (size_t m=0; m<M; m++) {
                 sum_theta += theta[n][players[m]];
             }
-            logw[n] += gsl_sf_log(theta_winner) - gsl_sf_log(sum_theta);
+            logw[n] += log(theta_winner) - log(sum_theta);
 
-            w[n] = gsl_sf_exp(logw[n]);
+            w[n] = exp(logw[n]);
             assert(gsl_finite(w[n]) == 1);
         }
 
@@ -521,7 +413,7 @@ void sim(struct sim_context *ctx) {
 
         if (ess < .5*N) {
             printf("# resampling at iteration %zu\n", s);
-            resample_move(r, N, K, s+1, M, theta, w, x, y);
+            resample_move(r, theta, w, s+1, x, y);
             ones(w, N);
             zeros(logw, N);
         }
@@ -531,8 +423,8 @@ void sim(struct sim_context *ctx) {
 
     /* resample at the end  */
     printf("# resampling at iteration %zu\n", S);
-    resample_move(r, N, K, S, M, theta, w, x, y);
-    /* no need to reset the weights at this point but just to be safe */
+    resample_move(r, theta, w, S, x, y);
+    /* no need to reset the weights at this point but just to be safe... */
     ones(w, N);
     zeros(logw, N);
 
@@ -541,72 +433,15 @@ void sim(struct sim_context *ctx) {
         printf("\n");
     }
 
-    /*
-    double smm = 0.;
-#pragma omp parallel for reduction(+:smm)
-    for(size_t n=0; n<N; n++) {
-        smm += sum(theta[n], K);
-    }
-
-    fprintf(stderr, "%lf\n", smm);
-    */
-
     free(theta);
     free(x);
     free(y);
 }
 
-int parse_arguments(struct opt *opt, int argc, char *argv[]) {
-    int c;
-    size_t i = 0;
 
-    opterr = 0;
-
-    while( (c = getopt(argc, argv, "vhk:n:s:m:a:")) != -1) {
-        switch(c) {
-            case 'h':
-                usage();
-                exit(EXIT_SUCCESS);
-            case 'v':
-                opt->verbose = 1;
-                break;
-            case 'k':
-                opt->k = atoi(optarg);
-                if(opt->k == 0) return 3;
-                break;
-            case 'n':
-                opt->n = atoi(optarg);
-                if(opt->n == 0) return 3;
-                break;
-            case 's':
-                opt->s = atoi(optarg);
-                if(opt->s == 0) return 3;
-                break;
-            case 'm':
-                opt->m = atoi(optarg);
-                if(opt->m == 0) return 3;
-                break;
-            case 'a':
-                opt->alpha = malloc(opt->k * sizeof(double));
-                char *token = strtok(optarg, ",");
-                while (token != NULL) {
-                    opt->alpha[i++] = atof(token);
-                    token = strtok(NULL, ",");
-                }
-                break;
-            default:
-                return 2;
-        }
-    }
-
-    if(optind != argc)
-        return 1;
-
-    return 0;
-}
-
-
-int main(int argc, char *argv[]) {
+int
+main(int argc, char *argv[])
+{
     const gsl_rng_type *T;
     gsl_rng *r;
 
@@ -617,52 +452,22 @@ int main(int argc, char *argv[]) {
 
     gsl_set_error_handler_off();
 
-    /* parse command line */
-    struct opt opt = {
-        .k = 3,
-        .n = 1000,
-        .s = 10,
-        .m = 2,
-        .verbose = 0,
-        .alpha = NULL
-    };
+    double *theta_star = malloc(K * sizeof(double));
+    sample_theta_star(r, theta_star);
 
-    if (parse_arguments(&opt, argc, argv) != 0) {
-        usage();
-        exit(EXIT_FAILURE);
-    }
-
-    if (opt.alpha == NULL) {
-        opt.alpha = malloc(opt.k * sizeof(double));
-        ones(opt.alpha, opt.k);
-    }
-
-    double *theta_star = malloc(opt.k * sizeof(double));
-    sample_theta_star(r, opt.k, theta_star);
-
-    printf("# k = %zu\n", opt.k);
-    printf("# n = %zu\n", opt.n);
-    printf("# s = %zu\n", opt.s);
-    printf("# m = %zu\n", opt.m);
-    printf("# v = %d\n", opt.verbose);
-    printf("# alpha = ");
-    to_string(opt.alpha, opt.k);
-    printf("\n");
+    printf("# K = %zu\n", K);
+    printf("# N = %zu\n", N);
+    printf("# S = %zu\n", S);
+    printf("# M = %zu\n", M);
     printf("# theta_star = ");
-    to_string(theta_star, opt.k);
+    to_string(theta_star, K);
     printf("\n");
 
-    struct sim_context ctx;
-    ctx.r = r;
-    ctx.n = opt.n;
-    ctx.k = opt.k;
-    ctx.m = opt.m;
-    ctx.s = opt.s;
-    ctx.alpha = opt.alpha;
-    ctx.theta_star = theta_star;
+    // perform simulation
+    sim(r, theta_star);
 
-    sim(&ctx);
-
+    // cleanup
+    free(theta_star);
     gsl_rng_free(r);
 
     exit(EXIT_SUCCESS);
