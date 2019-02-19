@@ -3,6 +3,7 @@ sampler
 test
 
 *.png
+*.pdf
 
 # Prerequisites
 *.d

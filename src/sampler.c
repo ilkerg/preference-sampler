@@ -384,10 +384,10 @@ void sim(struct sim_context *ctx) {
      *
      */
     const gsl_rng *r = ctx->r;
-    int N = ctx->n;
-    int K = ctx->k;
-    int S = ctx->s;
-    int M = ctx->m;
+    size_t N = ctx->n;
+    size_t K = ctx->k;
+    size_t S = ctx->s;
+    size_t M = ctx->m;
     double *alpha = ctx->alpha;
     double *theta_star = ctx->theta_star;
 
@@ -477,7 +477,7 @@ void sim(struct sim_context *ctx) {
 
         memcpy(x[s], players, sizeof players);
 
-        printf("# %d largest elements: ", M);
+        printf("# %zu largest elements: ", M);
         for (size_t m=0; m<M-1; m++) {
             printf("%zu,", players[m]);
             player_w[m] = theta_star[players[m]];
