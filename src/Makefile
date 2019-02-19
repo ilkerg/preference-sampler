@@ -13,7 +13,7 @@ CFLAGS = -DNDEBUG -O3 -march=native -ffast-math $(FOPENMP) $(FVECTORIZATION)
 #CFLAGS = -g -O0 $(FOPENMP) $(FSANITIZATION)
 
 OBJ_DIR = ../obj/
-OBJ = model.o helpers.o vector.o matrix.o simplex.o
+OBJ = model.o helpers.o simplex.o
 OBJECTS = $(addprefix $(OBJ_DIR), $(OBJ))
 
 all: sampler test tags
