@@ -8,20 +8,20 @@
 #include "helpers.h"
 
 double
-potential(const double theta[K], const size_t games[S][M],
-          const size_t winners[S])
+potential(const double theta[K], size_t ngames, const size_t games[ngames][M],
+          const size_t winners[ngames])
 {
     double V = .0;
 
     for (size_t k=0; k<K; k++)
         V -= .1*log(theta[k]);
 
-    for (size_t s=0; s<S; s++) {
+    for (size_t i=0; i<ngames; i++) {
         double sum = .0;
         for (size_t m=0; m<M; m++)
-            sum += theta[games[s][m]];
+            sum += theta[games[i][m]];
 
-        V -= log(theta[winners[s]]);
+        V -= log(theta[winners[i]]);
         V += log(sum);
     }
 
@@ -29,15 +29,16 @@ potential(const double theta[K], const size_t games[S][M],
 }
 
 void
-grad_potential(const double theta[K], const size_t games[S][M],
-               const size_t winners[S], double grad[K-1])
+grad_potential(const double theta[K], size_t ngames,
+               const size_t games[ngames][M], const size_t winners[ngames],
+               double grad[K-1])
 {
     // initialize grad components
     for (size_t k=0; k<K-1; k++)
         grad[k] = -.1 / theta[k] + .1 / theta[K-1];
 
-    for (size_t s=0; s<S; s++) {
-        size_t winner = winners[s];
+    for (size_t i=0; i<ngames; i++) {
+        size_t winner = winners[i];
         if (winner == K-1)
             for(size_t k=0; k<K-1; k++)
                 grad[k] += 1. / theta[winner];
@@ -47,50 +48,50 @@ grad_potential(const double theta[K], const size_t games[S][M],
         double sum = 0.;
         int K_plays = 0;
         for (size_t m=0; m<M; m++) {
-            sum += theta[games[s][m]];
-            if (games[s][m] == K-1)
+            sum += theta[games[i][m]];
+            if (games[i][m] == K-1)
                 K_plays = 1;
         }
 
         if (K_plays == 1) {
             for (size_t k=0; k<K-1; k++) {
-                if (is_in(k, games[s], M) == 0)
+                if (is_in(k, games[i], M) == 0)
                     grad[k] -= 1. / sum;
             }
         } else {
             for (size_t m=0; m<M; m++)
-                grad[games[s][m]] += 1. / sum;
+                grad[games[i][m]] += 1. / sum;
         }
     }
 }
 
 double
-loglik(const double theta[K], const size_t x[S][M], const size_t y[S])
+loglik(const double theta[K], size_t ngames, const size_t x[ngames][M],
+       const size_t y[ngames])
 {
-    size_t s, m;
     double ll = 0.;
     double sum_theta;
 
-    for (s = 0; s < S; s++) {
+    for (size_t i = 0; i < ngames; i++) {
         sum_theta = 0.;
-        for (m = 0; m < M; m++) {
-            sum_theta += theta[x[s][m]];
+        for (size_t m = 0; m < M; m++) {
+            sum_theta += theta[x[i][m]];
         }
 
-        ll += log(theta[y[s]]) - log(sum_theta);
+        ll += log(theta[y[i]]) - log(sum_theta);
     }
 
     return ll;
 }
 
 double
-fullcond(const size_t comp, const double theta[K], const size_t x[S][M],
-         const size_t y[S])
+fullcond(const size_t comp, const double theta[K], size_t ngames,
+        const size_t x[ngames][M], const size_t y[ngames])
 {
     double ll = .0;
 
-    for (size_t s=0; s<S; s++) {
-        size_t winner = y[s];
+    for (size_t i=0; i<ngames; i++) {
+        size_t winner = y[i];
         if (winner == comp || winner == K-1) {
             ll += log(theta[winner]);
         }
@@ -99,16 +100,16 @@ fullcond(const size_t comp, const double theta[K], const size_t x[S][M],
         unsigned int K_plays = 0;
 
         for (size_t m=0; m<M; m++) {
-            if (x[s][m]==comp)
+            if (x[i][m]==comp)
                 comp_plays = 1;
-            else if (x[s][m]==K-1)
+            else if (x[i][m]==K-1)
                 K_plays = 1;
         }
 
         if (comp_plays != K_plays) {
             double sum_theta = .0;
             for (size_t m = 0; m < M; m++) {
-                sum_theta += theta[x[s][m]];
+                sum_theta += theta[x[i][m]];
             }
             ll -= log(sum_theta);
         }

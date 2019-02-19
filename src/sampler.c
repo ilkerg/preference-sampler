@@ -13,9 +13,9 @@
 #include <omp.h>
 #endif
 
-const size_t N=1000;
-const size_t S=10;
-const size_t K=4;
+const size_t N=10000;
+const size_t S=1000;
+const size_t K=100;
 const size_t M=2;
 
 //#include "constants.h"
@@ -32,8 +32,8 @@ const size_t M=2;
 
 
 unsigned int
-move_gibbs(const gsl_rng *r, const double th[K], double new_th[K],
-           const size_t x[S][M], const size_t y[S])
+move_gibbs(const gsl_rng *r, const double th[K], double new_th[K], size_t ngames,
+           const size_t games[ngames][M], const size_t winners[ngames])
 {
     double theta_p[K];
     double ll, ll_p;
@@ -44,7 +44,7 @@ move_gibbs(const gsl_rng *r, const double th[K], double new_th[K],
     memcpy(theta_p, th, sizeof theta_p);
     for (size_t comp=0; comp<K-1; comp++) {
         /* assert(gsl_fcmp(sum(theta_p, K), 1.0, 1e-10)); */
-        ll = fullcond(comp, theta_p, x, y);
+        ll = fullcond(comp, theta_p, ngames, games, winners);
         /* determine current sum of all the components
          * except `comp` and the last one
          * because the last component is chosen to be
@@ -58,7 +58,7 @@ move_gibbs(const gsl_rng *r, const double th[K], double new_th[K],
         assert(theta_p[K-1] > .0);
 
         /* compute full conditional density at theta_p */
-        ll_p = fullcond(comp, theta_p, x, y);
+        ll_p = fullcond(comp, theta_p, ngames, games, winners);
 
         alpha = gsl_rng_uniform_pos(r);
         if (log(alpha) < ll_p - ll) {
@@ -80,7 +80,8 @@ move_gibbs(const gsl_rng *r, const double th[K], double new_th[K],
 
 unsigned int
 move_simplex_transform(const gsl_rng *r, const double th[K], double new_th[K],
-                       const size_t games[S][M], const size_t winners[S])
+                       size_t ngames, const size_t games[ngames][M],
+                       const size_t winners[ngames])
 {
     unsigned int accepted;
 
@@ -109,8 +110,8 @@ move_simplex_transform(const gsl_rng *r, const double th[K], double new_th[K],
     inverse_transform(y_prime, th_p);
 
     /* accept-reject */
-    double ll = loglik(th, games, winners);
-    double ll_p = loglik(th_p, games, winners);
+    double ll = loglik(th, ngames, games, winners);
+    double ll_p = loglik(th_p, ngames, games, winners);
 
     double alpha = gsl_rng_uniform_pos(r);
     if (log(alpha) < ll_p - ll) {
@@ -129,7 +130,8 @@ move_simplex_transform(const gsl_rng *r, const double th[K], double new_th[K],
 
 unsigned int
 move_dirichlet(const gsl_rng *r, const double th[K], double new_th[K],
-               const size_t games[S][M], const size_t winners[S])
+               size_t ngames, const size_t games[ngames][M],
+               const size_t winners[ngames])
 {
     double th_p[K];
     unsigned int accepted;
@@ -148,8 +150,8 @@ move_dirichlet(const gsl_rng *r, const double th[K], double new_th[K],
     }
 
     /* accept-reject */
-    double ll = loglik(th, games, winners);
-    double ll_p = loglik(th_p, games, winners);
+    double ll = loglik(th, ngames, games, winners);
+    double ll_p = loglik(th_p, ngames, games, winners);
 
     double alpha_p[K];
     for (size_t k=0; k<K; k++) {
@@ -177,7 +179,8 @@ move_dirichlet(const gsl_rng *r, const double th[K], double new_th[K],
 
 unsigned int
 move_hamiltonian(const gsl_rng *r, const double th[K], double new_th[K],
-                 const size_t games[S][M], const size_t winners[S])
+                 size_t ngames, const size_t games[ngames][M],
+                 const size_t winners[ngames])
 {
     const size_t L = 20;
     double th_p[K];
@@ -196,11 +199,11 @@ move_hamiltonian(const gsl_rng *r, const double th[K], double new_th[K],
         p[k] = gsl_ran_gaussian(r, 1.);
         e_initial += .5 * p[k] * p[k];
     }
-    double U = potential(th, games, winners);
+    double U = potential(th, ngames, games, winners);
     e_initial += U;
 
     /* leapfrog (epsilon, L) */
-    grad_potential(th, games, winners, grad);
+    grad_potential(th, ngames, games, winners, grad);
     double amg = fabs(max(grad, K-1));
 
     epsilon = .05 * sqrt(.2 / amg) / K;
@@ -214,7 +217,7 @@ move_hamiltonian(const gsl_rng *r, const double th[K], double new_th[K],
         /* update implicit coordinate of th_p */
         th_p[K-1] = 1. - sum(th_p, K-1);
 
-        grad_potential(th_p, games, winners, grad);
+        grad_potential(th_p, ngames, games, winners, grad);
 
         for (size_t k=0; k<K-1; k++) {
             p[k] -= .5*epsilon*grad[k];
@@ -240,7 +243,7 @@ move_hamiltonian(const gsl_rng *r, const double th[K], double new_th[K],
     for (size_t k=0; k<K-1; k++)
         e_final += .5 * p[k] * p[k];
 
-    U = potential(th_p, games, winners);
+    U = potential(th_p, ngames, games, winners);
     e_final += U;
 
     /* accept-reject */
@@ -264,7 +267,8 @@ move_hamiltonian(const gsl_rng *r, const double th[K], double new_th[K],
 
 void
 resample_move(const gsl_rng *r, double theta[N][K], const double w[N],
-              const size_t s, const size_t x[s][M], const size_t y[s])
+              const size_t ngames, const size_t x[ngames][M],
+              const size_t y[ngames])
 {
     unsigned int cnt[N];
     size_t accepted = 0;
@@ -279,7 +283,7 @@ resample_move(const gsl_rng *r, double theta[N][K], const double w[N],
 
 /* #pragma omp parallel for reduction(+:accepted) */
         for (size_t i=0; i < cnt[n]; i++) {
-            accepted += move_gibbs(r, theta[n], theta_new[n_new+i], x, y);
+            accepted += move_gibbs(r, theta[n], theta_new[n_new+i], ngames, x, y);
             /* accepted += move_simplex_transform(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
             /* accepted += move_dirichlet(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
             /* accepted += move_hamiltonian(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
