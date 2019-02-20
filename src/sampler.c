@@ -328,8 +328,8 @@ sim(const gsl_rng *r, const double theta_star[K])
     size_t (*x)[M] = malloc(S * sizeof *x);
     size_t *y = malloc(S * sizeof(size_t));
 
-    double w[N];
-    double logw[N];
+    double *w = malloc(N * sizeof(double));
+    double *logw = malloc(N * sizeof(double));
 
     ones(w, N);
     zeros(logw, N);
@@ -402,24 +402,30 @@ sim(const gsl_rng *r, const double theta_star[K])
                 sum_theta += theta[n][players[m]];
             }
             logw[n] += log(theta_winner) - log(sum_theta);
+        }
 
+        /* compute w from logw */
+        for (size_t n=0; n<N; n++) {
             w[n] = exp(logw[n]);
             assert(gsl_finite(w[n]) == 1);
         }
 
-        double two_logw[N];
-        for (size_t n=0; n<N; n++)
-            two_logw[n] = 2*logw[n];
+        /* compute ess and perform resampling if necessary */
+        {
+            double two_logw[N];
+            for (size_t n=0; n<N; n++)
+                two_logw[n] = 2*logw[n];
 
-        double ess = exp(2*log_sum_exp(logw, N) - log_sum_exp(two_logw, N));
+            double ess = exp(2*log_sum_exp(logw, N) - log_sum_exp(two_logw, N));
 
-        printf("# ess = %lf\n", ess);
+            printf("# ess = %lf\n", ess);
 
-        if (ess < .5*N) {
-            printf("# resampling at iteration %zu\n", s);
-            resample_move(r, theta, w, s+1, x, y);
-            ones(w, N);
-            zeros(logw, N);
+            if (ess < .5*N) {
+                printf("# resampling at iteration %zu\n", s);
+                resample_move(r, theta, w, s+1, x, y);
+                ones(w, N);
+                zeros(logw, N);
+            }
         }
 
         printf("\n");

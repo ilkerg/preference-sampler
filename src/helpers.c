@@ -37,7 +37,7 @@ ones(double *arr, const size_t length)
 void
 zeros(double *arr, const size_t length)
 {
-    memset(arr, 0.0, length * sizeof(double));
+    memset(arr, 0, length * sizeof(double));
 }
 
 double

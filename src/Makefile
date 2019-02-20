@@ -4,6 +4,7 @@ FSANITIZATION =
 #FOPENMP = -fopenmp
 FOPENMP =
 #FVECTORIZATION = -Rpass-missed=loop-vectorize -Rpass-analysis=loop-vectorize
+#FVECTORIZATION = -Rpass=loop-vectorize
 FVECTORIZATION =
 LDFLAGS = $(shell pkg-config --libs gsl) $(FOPENMP) $(FSANITIZATION) \
 		  -march=native -lprofiler

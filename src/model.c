@@ -1,8 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <gsl/gsl_math.h>
-#include <gsl/gsl_sf_log.h>
-#include <gsl/gsl_sf_exp.h>
+#include <math.h>
+#include <stdbool.h>
 
 #include "model.h"
 #include "helpers.h"
@@ -96,14 +95,14 @@ fullcond(const size_t comp, const double theta[K], size_t ngames,
             ll += log(theta[winner]);
         }
 
-        unsigned int comp_plays = 0;
-        unsigned int K_plays = 0;
+        bool comp_plays = false;
+        bool K_plays = false;
 
         for (size_t m=0; m<M; m++) {
             if (x[i][m]==comp)
-                comp_plays = 1;
+                comp_plays = true;
             else if (x[i][m]==K-1)
-                K_plays = 1;
+                K_plays = true;
         }
 
         if (comp_plays != K_plays) {
@@ -113,17 +112,6 @@ fullcond(const size_t comp, const double theta[K], size_t ngames,
             }
             ll -= log(sum_theta);
         }
-
-        /*
-        if (is_in(comp, x[s], M) != is_in(K-1, x[s], M)) {
-            sum_theta = .0;
-            for (size_t m = 0; m < M; m++) {
-                sum_theta += theta[x[s][m]];
-            }
-
-            ll -= log(sum_theta);
-        }
-        */
     }
     return ll;
 }
