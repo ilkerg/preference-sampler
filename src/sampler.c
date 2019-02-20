@@ -13,9 +13,9 @@
 #include <omp.h>
 #endif
 
-const size_t N=1000;
-const size_t S=100;
-const size_t K=10;
+const size_t N=10000;
+const size_t S=1000;
+const size_t K=100;
 const size_t M=2;
 
 //#include "constants.h"
@@ -52,7 +52,10 @@ move_gibbs(const gsl_rng *r, const double th[K], double new_th[K], size_t ngames
          */
         current_total = sum(theta_p, K-1) - theta_p[comp];
         /* sample a suitable value for the current component */
+#pragma omp critical
+        {
         theta_p[comp] = gsl_rng_uniform_pos(r) * (1 - current_total);
+        }
         assert(theta_p[comp] > .0);
         theta_p[K-1] = 1 - sum(theta_p, K-1);
         assert(theta_p[K-1] > .0);
@@ -60,7 +63,10 @@ move_gibbs(const gsl_rng *r, const double th[K], double new_th[K], size_t ngames
         /* compute full conditional density at theta_p */
         ll_p = fullcond(comp, theta_p, ngames, games, winners);
 
+#pragma omp critical
+        {
         alpha = gsl_rng_uniform_pos(r);
+        }
         if (log(alpha) < ll_p - ll) {
             /* accept */
             /* ll = ll_p; */
@@ -284,7 +290,7 @@ resample_move(const gsl_rng *r, double theta[N][K], const double w[N],
         }
     }
 
-/* #pragma omp parallel for reduction(+:accepted) */
+#pragma omp parallel for reduction(+:accepted)
     for (size_t n=0; n<N; n++) {
         accepted += move_gibbs(r, theta_new[n], theta[n], ngames, x, y);
         /* accepted += move_simplex_transform(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */

@@ -1,8 +1,8 @@
 CC = clang
 #FSANITIZATION = -fsanitize=memory
 FSANITIZATION =
-#FOPENMP = -fopenmp
-FOPENMP =
+FOPENMP = -fopenmp
+#FOPENMP =
 #FVECTORIZATION = -Rpass-missed=loop-vectorize -Rpass-analysis=loop-vectorize
 #FVECTORIZATION = -Rpass=loop-vectorize
 FVECTORIZATION =
