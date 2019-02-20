@@ -14,9 +14,9 @@
 #endif
 
 const size_t N=10000;
-const size_t S=1000;
+const size_t S=2000;
 const size_t K=100;
-const size_t M=2;
+const size_t M=3;
 
 //#include "constants.h"
 #include "helpers.h"
@@ -32,7 +32,7 @@ const size_t M=2;
 
 
 unsigned int
-move_gibbs(double random_numbers[2*(K-1)], const double th[K], double new_th[K], size_t ngames,
+move_gibbs(double random_numbers[2*(K-1)], double th[K], size_t ngames,
            const size_t games[ngames][M], const size_t winners[ngames])
 {
     double theta_p[K];
@@ -87,7 +87,7 @@ move_gibbs(double random_numbers[2*(K-1)], const double th[K], double new_th[K],
             accepted |= 0;
         }
     }
-    memcpy(new_th, theta_p, sizeof theta_p);
+    memcpy(th, theta_p, sizeof theta_p);
     return accepted;
 }
 
@@ -307,18 +307,17 @@ resample_move(const gsl_rng *r, double theta[N][K], const double w[N],
 
 #pragma omp parallel for reduction(+:accepted)
     for (size_t n=0; n<N; n++) {
-        accepted += move_gibbs(random_numbers[n], theta_new[n], theta[n], ngames, x, y);
+        accepted += move_gibbs(random_numbers[n], theta_new[n], ngames, x, y);
         /* accepted += move_simplex_transform(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
         /* accepted += move_dirichlet(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
         /* accepted += move_hamiltonian(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
-        n_new+=cnt[n];
     }
 
     printf("# to_move = %zu\n", N);
     printf("# accepted = %zu\n", accepted);
     printf("# acceptance ratio = %lf\n", (double) accepted / N);
 
-    /* memcpy(theta, theta_new, N*K*sizeof(double)); */
+    memcpy(theta, theta_new, N*K*sizeof(double));
     free(theta_new);
     free(random_numbers);
 }
