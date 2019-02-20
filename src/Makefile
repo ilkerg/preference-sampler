@@ -1,13 +1,15 @@
 CC = clang
 #FSANITIZATION = -fsanitize=memory
 FSANITIZATION =
+#FPROFILER = -lprofiler
+FPROFILER =
 FOPENMP = -fopenmp
 #FOPENMP =
 #FVECTORIZATION = -Rpass-missed=loop-vectorize -Rpass-analysis=loop-vectorize
 #FVECTORIZATION = -Rpass=loop-vectorize
 FVECTORIZATION =
-LDFLAGS = $(shell pkg-config --libs gsl) $(FOPENMP) $(FSANITIZATION) \
-		  -march=native -lprofiler
+LDFLAGS = $(shell gsl-config --libs) -march=native \
+		  $(FOPENMP) $(FSANITIZATION) $(FPROFILER)
 CFLAGS = -DNDEBUG -O3 -march=native -ffast-math $(FOPENMP) $(FVECTORIZATION)
 #CFLAGS = -g -Wshadow -Werror -Wall -O3 -march=native -ffast-math -std=c99 $(FOPENMP) $(FSANITIZATION)
 #CFLAGS = -g -O0 $(FOPENMP) $(FSANITIZATION)
