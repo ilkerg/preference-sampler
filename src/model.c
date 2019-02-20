@@ -45,14 +45,17 @@ grad_potential(const double theta[K], size_t ngames,
             grad[winner] -= 1. / theta[winner];
 
         double sum = 0.;
-        int K_plays = 0;
         for (size_t m=0; m<M; m++) {
             sum += theta[games[i][m]];
-            if (games[i][m] == K-1)
-                K_plays = 1;
         }
 
-        if (K_plays == 1) {
+        bool K_plays = false;
+        for (size_t m=0; m<M; m++) {
+            if (games[i][m] == K-1)
+                K_plays = true;
+        }
+
+        if (K_plays == true) {
             for (size_t k=0; k<K-1; k++) {
                 if (is_in(k, games[i], M) == 0)
                     grad[k] -= 1. / sum;
