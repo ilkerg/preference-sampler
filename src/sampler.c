@@ -366,7 +366,7 @@ sim(const gsl_rng *r, const double theta_star[K])
         to_string(theta[theta_sample_idx], K);
         printf("\n");
 
-        /* pick M elments from theta_c */
+        /* pick M elements from theta_c */
         size_t players[M];
         double player_w[M];
         gsl_sort_largest_index(players, M, theta[theta_sample_idx], 1, K);
@@ -446,6 +446,8 @@ sim(const gsl_rng *r, const double theta_star[K])
     free(theta);
     free(x);
     free(y);
+    free(w);
+    free(logw);
 }
 
 
