@@ -13,9 +13,9 @@
 #include <omp.h>
 #endif
 
-const size_t N=10000;
-const size_t S=1000;
-const size_t K=100;
+const size_t N=1000;
+const size_t S=100;
+const size_t K=10;
 const size_t M=2;
 
 //#include "constants.h"
@@ -275,19 +275,21 @@ resample_move(const gsl_rng *r, double theta[N][K], const double w[N],
 
     gsl_ran_multinomial(r, N, N, w, cnt);
 
-    size_t n_new = 0;
+    /* populate particles */
     double (*theta_new)[K] = malloc(N * sizeof *theta_new);
+    size_t n_new = 0;
     for (size_t n=0; n<N; n++) {
-        if (cnt[n] == 0)
-            continue;
+        for (size_t i=0; i < cnt[n]; i++) {
+            memcpy(theta_new[n_new++], theta[n], sizeof *theta_new);
+        }
+    }
 
 /* #pragma omp parallel for reduction(+:accepted) */
-        for (size_t i=0; i < cnt[n]; i++) {
-            accepted += move_gibbs(r, theta[n], theta_new[n_new+i], ngames, x, y);
-            /* accepted += move_simplex_transform(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
-            /* accepted += move_dirichlet(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
-            /* accepted += move_hamiltonian(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
-        }
+    for (size_t n=0; n<N; n++) {
+        accepted += move_gibbs(r, theta_new[n], theta[n], ngames, x, y);
+        /* accepted += move_simplex_transform(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
+        /* accepted += move_dirichlet(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
+        /* accepted += move_hamiltonian(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
         n_new+=cnt[n];
     }
 
@@ -295,7 +297,7 @@ resample_move(const gsl_rng *r, double theta[N][K], const double w[N],
     printf("# accepted = %zu\n", accepted);
     printf("# acceptance ratio = %lf\n", (double) accepted / N);
 
-    memcpy(theta, theta_new, N*K*sizeof(double));
+    /* memcpy(theta, theta_new, N*K*sizeof(double)); */
     free(theta_new);
 }
 
