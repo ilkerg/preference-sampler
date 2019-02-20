@@ -14,11 +14,10 @@
 #endif
 
 const size_t N=10000;
-const size_t S=2000;
-const size_t K=100;
+const size_t S=200;
+const size_t K=10;
 const size_t M=3;
 
-//#include "constants.h"
 #include "helpers.h"
 #include "model.h"
 #include "simplex.h"
@@ -52,12 +51,6 @@ move_gibbs(double random_numbers[2*(K-1)], double th[K], size_t ngames,
          */
         current_total = sum(theta_p, K-1) - theta_p[comp];
         /* sample a suitable value for the current component */
-        /*
-#pragma omp critical
-        {
-        theta_p[comp] = gsl_rng_uniform_pos(r) * (1 - current_total);
-        }
-        */
         theta_p[comp] = random_numbers[comp] * (1 - current_total);
 
         assert(theta_p[comp] > .0);
@@ -67,12 +60,6 @@ move_gibbs(double random_numbers[2*(K-1)], double th[K], size_t ngames,
         /* compute full conditional density at theta_p */
         ll_p = fullcond(comp, theta_p, ngames, games, winners);
 
-        /*
-#pragma omp critical
-        {
-        alpha = gsl_rng_uniform_pos(r);
-        }
-        */
         alpha = random_numbers[comp+1];
         if (log(alpha) < ll_p - ll) {
             /* accept */
