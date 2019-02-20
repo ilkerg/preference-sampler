@@ -32,7 +32,7 @@ const size_t M=2;
 
 
 unsigned int
-move_gibbs(const gsl_rng *r, const double th[K], double new_th[K], size_t ngames,
+move_gibbs(double random_numbers[2*(K-1)], const double th[K], double new_th[K], size_t ngames,
            const size_t games[ngames][M], const size_t winners[ngames])
 {
     double theta_p[K];
@@ -52,10 +52,14 @@ move_gibbs(const gsl_rng *r, const double th[K], double new_th[K], size_t ngames
          */
         current_total = sum(theta_p, K-1) - theta_p[comp];
         /* sample a suitable value for the current component */
+        /*
 #pragma omp critical
         {
         theta_p[comp] = gsl_rng_uniform_pos(r) * (1 - current_total);
         }
+        */
+        theta_p[comp] = random_numbers[comp] * (1 - current_total);
+
         assert(theta_p[comp] > .0);
         theta_p[K-1] = 1 - sum(theta_p, K-1);
         assert(theta_p[K-1] > .0);
@@ -63,10 +67,13 @@ move_gibbs(const gsl_rng *r, const double th[K], double new_th[K], size_t ngames
         /* compute full conditional density at theta_p */
         ll_p = fullcond(comp, theta_p, ngames, games, winners);
 
+        /*
 #pragma omp critical
         {
         alpha = gsl_rng_uniform_pos(r);
         }
+        */
+        alpha = random_numbers[comp+1];
         if (log(alpha) < ll_p - ll) {
             /* accept */
             /* ll = ll_p; */
@@ -290,9 +297,17 @@ resample_move(const gsl_rng *r, double theta[N][K], const double w[N],
         }
     }
 
+    /* pre-generate random numbers to avoid thread synchronization */
+    double (*random_numbers)[2*(K-1)] = malloc(N * sizeof *random_numbers);
+    for (size_t n=0; n<N; n++) {
+        for (size_t k=0; k<2*(K-1); k++) {
+            random_numbers[n][k] = gsl_rng_uniform_pos(r);
+        }
+    }
+
 #pragma omp parallel for reduction(+:accepted)
     for (size_t n=0; n<N; n++) {
-        accepted += move_gibbs(r, theta_new[n], theta[n], ngames, x, y);
+        accepted += move_gibbs(random_numbers[n], theta_new[n], theta[n], ngames, x, y);
         /* accepted += move_simplex_transform(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
         /* accepted += move_dirichlet(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
         /* accepted += move_hamiltonian(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
@@ -305,6 +320,7 @@ resample_move(const gsl_rng *r, double theta[N][K], const double w[N],
 
     /* memcpy(theta, theta_new, N*K*sizeof(double)); */
     free(theta_new);
+    free(random_numbers);
 }
 
 void
