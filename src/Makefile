@@ -33,5 +33,5 @@ tags:
 
 .PHONY: clean
 clean:
-	rm -f $(OBJ_DIR)*.o sampler test
+	rm -f $(OBJ_DIR)*.o sampler
 
