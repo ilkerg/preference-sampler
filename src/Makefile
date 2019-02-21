@@ -15,7 +15,7 @@ CFLAGS = -DNDEBUG -O3 -march=native -ffast-math $(FOPENMP) $(FVECTORIZATION)
 #CFLAGS = -g -O0 $(FOPENMP) $(FSANITIZATION)
 
 OBJ_DIR = ../obj/
-OBJ = model.o helpers.o simplex.o sampler.o
+OBJ = model.o helpers.o simplex.o sampler.o set_counter.o
 OBJECTS = $(addprefix $(OBJ_DIR), $(OBJ))
 
 all: sampler tags

@@ -22,7 +22,7 @@ const size_t M=3;
 #include "helpers.h"
 #include "model.h"
 #include "simplex.h"
-
+#include "set_counter.h"
 
 #define to_string(arr, k) \
     for (size_t i = 0; i < k-1; i++) { \
@@ -33,7 +33,8 @@ const size_t M=3;
 
 unsigned int
 move_gibbs(double random_numbers[2*(K-1)], double th[K], size_t ngames,
-           const size_t games[ngames][M], const size_t winners[ngames])
+           const size_t games[ngames][M], const size_t game_counts[ngames],
+           const size_t win_counts[K])
 {
     double theta_p[K];
     double ll, ll_p;
@@ -44,7 +45,7 @@ move_gibbs(double random_numbers[2*(K-1)], double th[K], size_t ngames,
     memcpy(theta_p, th, sizeof theta_p);
     for (size_t comp=0; comp<K-1; comp++) {
         /* assert(gsl_fcmp(sum(theta_p, K), 1.0, 1e-10)); */
-        ll = fullcond(comp, theta_p, ngames, games, winners);
+        ll = fullcond(comp, theta_p, ngames, games, game_counts, win_counts);
         /* determine current sum of all the components
          * except `comp` and the last one
          * because the last component is chosen to be
@@ -59,7 +60,7 @@ move_gibbs(double random_numbers[2*(K-1)], double th[K], size_t ngames,
         assert(theta_p[K-1] > .0);
 
         /* compute full conditional density at theta_p */
-        ll_p = fullcond(comp, theta_p, ngames, games, winners);
+        ll_p = fullcond(comp, theta_p, ngames, games, game_counts, win_counts);
 
         alpha = random_numbers[comp+1];
         if (log(alpha) < ll_p - ll) {
@@ -268,8 +269,7 @@ move_hamiltonian(const gsl_rng *r, const double th[K], double new_th[K],
 
 void
 resample_move(const gsl_rng *r, double theta[N][K], const double w[N],
-              const size_t ngames, const size_t x[ngames][M],
-              const size_t y[ngames])
+              const struct set_counter *games_counter, const size_t wins[K])
 {
     unsigned int cnt[N];
     size_t accepted = 0;
@@ -293,9 +293,17 @@ resample_move(const gsl_rng *r, double theta[N][K], const double w[N],
         }
     }
 
+
+    /* extract game counts from the counter */
+    size_t ngames = games_counter->size;
+    size_t (*games)[M] = malloc(ngames * sizeof *games);
+    size_t *game_counts = malloc(ngames * sizeof *game_counts);
+    set_counter_keys(games_counter, games);
+    set_counter_values(games_counter, game_counts);
+
 #pragma omp parallel for reduction(+:accepted)
     for (size_t n=0; n<N; n++) {
-        accepted += move_gibbs(random_numbers[n], theta_new[n], ngames, x, y);
+        accepted += move_gibbs(random_numbers[n], theta_new[n], ngames, games, game_counts, wins);
         /* accepted += move_simplex_transform(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
         /* accepted += move_dirichlet(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
         /* accepted += move_hamiltonian(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
@@ -308,6 +316,8 @@ resample_move(const gsl_rng *r, double theta[N][K], const double w[N],
     memcpy(theta, theta_new, N*K*sizeof(double));
     free(theta_new);
     free(random_numbers);
+    free(games);
+    free(game_counts);
 }
 
 void
@@ -366,6 +376,9 @@ sim(const gsl_rng *r, const double theta_star[K])
     ones(w, N);
     zeros(logw, N);
 
+    size_t *wins = calloc(K, sizeof *wins);
+    struct set_counter *games_counter = set_counter_alloc();
+
     /* general info */
     printf("# generator type: %s\n", gsl_rng_name(r));
     printf("# seed = %lu\n", gsl_rng_default_seed);
@@ -382,7 +395,7 @@ sim(const gsl_rng *r, const double theta_star[K])
 
     for(size_t s = 0; s < S; s++) {
         fprintf(stderr, "s = %zu\r", s);
-//#pragma omp parallel for
+        //#pragma omp parallel for
         for(size_t n=0; n<N; n++) {
             double smm = sum(theta[n], K);
             assert(gsl_finite(smm) == 1);
@@ -404,6 +417,9 @@ sim(const gsl_rng *r, const double theta_star[K])
         gsl_sort_largest_index(players, M, theta[theta_sample_idx], 1, K);
 
         memcpy(x[s], players, sizeof players);
+        set_counter_add(games_counter, players);
+
+        printf("# number of unique subsets so far: %zu\n", games_counter->size);
 
         printf("# %zu largest elements: ", M);
         for (size_t m=0; m<M-1; m++) {
@@ -422,11 +438,13 @@ sim(const gsl_rng *r, const double theta_star[K])
         size_t winner = gsl_ran_discrete(r, g);
         gsl_ran_discrete_free(g);
 
+        wins[winner]++;
+
         y[s] = players[winner];
         printf("# winner: %zu\n", y[s]);
 
         /* update weights */
-//#pragma omp parallel for
+        //#pragma omp parallel for
         for(size_t n = 0; n < N; n++) {
             double theta_winner = theta[n][players[winner]];
             double sum_theta = 0;
@@ -457,7 +475,7 @@ sim(const gsl_rng *r, const double theta_star[K])
 
             if (ess < .5*N) {
                 printf("# resampling at iteration %zu\n", s);
-                resample_move(r, theta, w, s+1, x, y);
+                resample_move(r, theta, w, games_counter, wins);
                 ones(w, N);
                 zeros(logw, N);
             }
@@ -468,7 +486,7 @@ sim(const gsl_rng *r, const double theta_star[K])
 
     /* resample at the end  */
     printf("# resampling at iteration %zu\n", S);
-    resample_move(r, theta, w, S, x, y);
+    resample_move(r, theta, w, games_counter, wins);
     /* no need to reset the weights at this point but just to be safe... */
     ones(w, N);
     zeros(logw, N);
@@ -478,11 +496,14 @@ sim(const gsl_rng *r, const double theta_star[K])
         printf("\n");
     }
 
+    /* cleanup */
     free(theta);
     free(x);
     free(y);
     free(w);
     free(logw);
+    free(wins);
+    set_counter_free(games_counter);
 }
 
 
