@@ -12,5 +12,5 @@ grep largest $1 | cut -d' ' -f5 \
     for (i=1; i<=length(arr); i++) {
         printf "%s,", arr[i] };
         printf RS
-    }' | sort -n | uniq -c | sort -rn | head -n $2
+    }' | sort -n | uniq -c | sort -rn | head -n 10
 

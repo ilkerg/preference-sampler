@@ -53,7 +53,7 @@ move_gibbs(double random_numbers[2*(K-1)], double th[K], size_t ngames,
          */
         current_total = sum(theta_p, K-1) - theta_p[comp];
         /* sample a suitable value for the current component */
-        theta_p[comp] = random_numbers[comp] * (1 - current_total);
+        theta_p[comp] = random_numbers[2*comp] * (1 - current_total);
 
         assert(theta_p[comp] > .0);
         theta_p[K-1] = 1 - sum(theta_p, K-1);
@@ -62,7 +62,7 @@ move_gibbs(double random_numbers[2*(K-1)], double th[K], size_t ngames,
         /* compute full conditional density at theta_p */
         ll_p = fullcond(comp, theta_p, ngames, games, game_counts, win_counts);
 
-        alpha = random_numbers[comp+1];
+        alpha = random_numbers[2*comp+1];
         if (log(alpha) < ll_p - ll) {
             /* accept */
             /* ll = ll_p; */
