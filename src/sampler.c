@@ -438,7 +438,7 @@ sim(const gsl_rng *r, const double theta_star[K])
         size_t winner = gsl_ran_discrete(r, g);
         gsl_ran_discrete_free(g);
 
-        wins[winner]++;
+        wins[players[winner]]++;
 
         y[s] = players[winner];
         printf("# winner: %zu\n", y[s]);
