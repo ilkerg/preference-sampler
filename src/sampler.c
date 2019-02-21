@@ -14,7 +14,7 @@
 #include <omp.h>
 #endif
 
-const size_t N=1000;
+const size_t N=5000;
 const size_t S=200;
 const size_t K=10;
 const size_t M=3;
@@ -437,9 +437,12 @@ sim(const gsl_rng *r, const double theta_star[K])
         }
 
         /* compute w from logw */
-        for (size_t n=0; n<N; n++) {
-            w[n] = exp(logw[n]);
-            assert(gsl_finite(w[n]) == 1);
+        {
+            double lse = log_sum_exp(logw, N);
+            for (size_t n=0; n<N; n++) {
+                w[n] = exp(logw[n] - lse);
+                assert(gsl_finite(w[n]) == 1);
+            }
         }
 
         /* compute ess and perform resampling if necessary */
