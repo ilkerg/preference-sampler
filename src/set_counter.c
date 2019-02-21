@@ -4,6 +4,25 @@
 #include "set_counter.h"
 
 
+/* python hash implementation for tuples */
+static size_t
+python_tuple_hash(size_t tuple[M]) {
+    size_t mult = 1000003UL;
+    size_t x = 0x345678UL;
+    ssize_t y;
+
+    ssize_t len = M;
+
+    while (--len >=0) {
+        y = *tuple++;
+        x = (x ^ y) * mult;
+        mult += (size_t) (82520UL + len + len);
+    }
+
+    x += 97531UL;
+    return x;
+}
+
 static size_t
 hash(const size_t key[M])
 {
@@ -61,7 +80,7 @@ set_counter_add(struct set_counter *c, size_t key[M])
     /* sort the key */
     insertion_sort(key);
 
-    size_t idx = hash(key) % HASH_TABLE_SIZE;
+    size_t idx = python_tuple_hash(key) % HASH_TABLE_SIZE;
 
     size_t *kk = c->keys + M*idx;
     while (c->occupied[idx]) {

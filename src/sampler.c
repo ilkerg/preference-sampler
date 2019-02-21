@@ -14,9 +14,9 @@
 #include <omp.h>
 #endif
 
-const size_t N=10000;
-const size_t S=2000;
-const size_t K=100;
+const size_t N=1000;
+const size_t S=200;
+const size_t K=10;
 const size_t M=3;
 
 #include "helpers.h"
