@@ -77,14 +77,16 @@ set_counter_free(struct set_counter *c)
 void
 set_counter_add(struct set_counter *c, size_t key[M])
 {
+    size_t sorted_key[M];
+    memcpy(sorted_key, key, sizeof sorted_key);
     /* sort the key */
-    insertion_sort(key);
+    insertion_sort(sorted_key);
 
-    size_t idx = python_tuple_hash(key) % HASH_TABLE_SIZE;
+    size_t idx = python_tuple_hash(sorted_key) % HASH_TABLE_SIZE;
 
     size_t *kk = c->keys + M*idx;
     while (c->occupied[idx]) {
-        if (key_equal(kk, key)) {
+        if (key_equal(kk, sorted_key)) {
             /* key found. increment and return */
             c->values[idx]++;
             return;
@@ -96,7 +98,7 @@ set_counter_add(struct set_counter *c, size_t key[M])
     }
 
     /* key not found. add */
-    memcpy(kk, key, M*sizeof(size_t));
+    memcpy(kk, sorted_key, M*sizeof(size_t));
     c->values[idx] = 1;
     c->occupied[idx] = true;
     c->size++;
