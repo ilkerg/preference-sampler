@@ -8,15 +8,16 @@
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_sort.h>
+#include <gsl/gsl_math.h> // gsl_finite
 
 #ifdef _OPENMP
 #include <omp.h>
 #endif
 
 const size_t N=1000;
-const size_t S=100;
-const size_t K=4;
-const size_t M=2;
+const size_t S=200;
+const size_t K=10;
+const size_t M=3;
 
 #include "helpers.h"
 #include "model.h"
