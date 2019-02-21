@@ -95,6 +95,7 @@ set_counter_add(struct set_counter *c, size_t key[M])
         /* collision. check next slot */
         idx++;
         idx %= HASH_TABLE_SIZE;
+        kk = c->keys + M*idx;
     }
 
     /* key not found. add */
