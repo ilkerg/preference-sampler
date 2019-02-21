@@ -13,10 +13,10 @@
 #include <omp.h>
 #endif
 
-const size_t N=10000;
-const size_t S=200;
-const size_t K=10;
-const size_t M=3;
+const size_t N=1000;
+const size_t S=100;
+const size_t K=4;
+const size_t M=2;
 
 #include "helpers.h"
 #include "model.h"
@@ -327,6 +327,27 @@ sample_theta_star(const gsl_rng *r, double theta_star[K])
 }
 
 void
+read_theta_star(const char *file_name, double theta_star[K])
+{
+    char buf[80];
+    FILE *ts = fopen(file_name, "r");
+
+    if (!ts) {
+        fprintf(stderr, "error reading %s\n", file_name);
+        exit(EXIT_FAILURE);
+    }
+
+    for (size_t k = 0; k<K; k++) {
+        if (!fgets(buf, 80, ts)) {
+            fprintf(stderr, "error reading %s\n", file_name);
+            exit(EXIT_FAILURE);
+        }
+        theta_star[k] = atof(buf);
+    };
+    fclose(ts);
+}
+
+void
 sim(const gsl_rng *r, const double theta_star[K])
 {
     /*
@@ -475,7 +496,11 @@ main(int argc, char *argv[])
     gsl_set_error_handler_off();
 
     double *theta_star = malloc(K * sizeof(double));
-    sample_theta_star(r, theta_star);
+    /* read theta_star from a file */
+    if (argc==2)
+        read_theta_star(argv[1], theta_star);
+    else
+        sample_theta_star(r, theta_star);
 
     printf("# K = %zu\n", K);
     printf("# N = %zu\n", N);
