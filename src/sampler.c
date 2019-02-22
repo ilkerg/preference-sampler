@@ -15,8 +15,8 @@
 #endif
 
 const size_t N=5000;
-const size_t S=200;
-const size_t K=10;
+const size_t S=1000;
+const size_t K=50;
 const size_t M=3;
 
 #include "helpers.h"
@@ -44,7 +44,7 @@ move_gibbs(double random_numbers[2*(K-1)], double th[K], size_t ngames,
 
     memcpy(theta_p, th, sizeof theta_p);
     for (size_t comp=0; comp<K-1; comp++) {
-        /* assert(gsl_fcmp(sum(theta_p, K), 1.0, 1e-10)); */
+        assert(gsl_fcmp(sum(theta_p, K), 1.0, 1e-15) == 0);
         ll = fullcond(comp, theta_p, ngames, games, game_counts, win_counts);
         /* determine current sum of all the components
          * except `comp` and the last one
@@ -366,10 +366,6 @@ sim(const gsl_rng *r, const double theta_star[K])
      * which represent current posterior density
      */
     double (*theta)[K] = malloc(N * sizeof *theta);
-    /* double theta_c[K]; */
-    size_t (*x)[M] = malloc(S * sizeof *x);
-    size_t *y = malloc(S * sizeof(size_t));
-
     double *w = malloc(N * sizeof(double));
     double *logw = malloc(N * sizeof(double));
 
@@ -394,13 +390,8 @@ sim(const gsl_rng *r, const double theta_star[K])
     }
 
     for(size_t s = 0; s < S; s++) {
-        fprintf(stderr, "s = %zu\r", s);
-        //#pragma omp parallel for
-        for(size_t n=0; n<N; n++) {
-            double smm = sum(theta[n], K);
-            assert(gsl_finite(smm) == 1);
-            assert(gsl_fcmp(smm, 1.0, 1e-10) == 0);
-        }
+        fprintf(stderr, "s = %zu\r", s); /* for progress monitoring */
+        printf("iteration = %zu\n", s);
 
         /* sample a theta from the current posterior */
         gsl_ran_discrete_t *g = gsl_ran_discrete_preproc(N, w);
@@ -411,15 +402,14 @@ sim(const gsl_rng *r, const double theta_star[K])
         to_string(theta[theta_sample_idx], K);
         printf("\n");
 
-        /* pick M elements from theta_c */
+        /* pick M elements from current sample */
         size_t players[M];
-        double player_w[M];
         gsl_sort_largest_index(players, M, theta[theta_sample_idx], 1, K);
 
-        memcpy(x[s], players, sizeof players);
         set_counter_add(games_counter, players);
-
         printf("# number of unique subsets so far: %zu\n", games_counter->size);
+
+        double player_w[M];
 
         printf("# %zu largest elements: ", M);
         for (size_t m=0; m<M-1; m++) {
@@ -434,19 +424,21 @@ sim(const gsl_rng *r, const double theta_star[K])
         printf("\n");
 
         /* determine outcome using theta_star */
-        g = gsl_ran_discrete_preproc(M, player_w);
-        size_t winner = gsl_ran_discrete(r, g);
-        gsl_ran_discrete_free(g);
+        size_t winner;
+        {
+            g = gsl_ran_discrete_preproc(M, player_w);
+            size_t w = gsl_ran_discrete(r, g);
+            winner = players[w];
+            gsl_ran_discrete_free(g);
+        }
+        printf("# winner: %zu\n", winner);
 
-        wins[players[winner]]++;
-
-        y[s] = players[winner];
-        printf("# winner: %zu\n", y[s]);
+        wins[winner]++;
 
         /* update weights */
-        //#pragma omp parallel for
+#pragma omp parallel for
         for(size_t n = 0; n < N; n++) {
-            double theta_winner = theta[n][players[winner]];
+            double theta_winner = theta[n][winner];
             double sum_theta = 0;
             for (size_t m=0; m<M; m++) {
                 sum_theta += theta[n][players[m]];
@@ -483,6 +475,7 @@ sim(const gsl_rng *r, const double theta_star[K])
 
         printf("\n");
     }
+    fprintf(stderr, "\n");
 
     /* resample at the end  */
     printf("# resampling at iteration %zu\n", S);
@@ -498,8 +491,6 @@ sim(const gsl_rng *r, const double theta_star[K])
 
     /* cleanup */
     free(theta);
-    free(x);
-    free(y);
     free(w);
     free(logw);
     free(wins);
