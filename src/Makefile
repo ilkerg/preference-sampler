@@ -1,15 +1,21 @@
-CC = clang
+#CC = clang
+CC = gcc
+
 #FSANITIZATION = -fsanitize=memory
 FSANITIZATION =
-#FPROFILER = -lprofiler
-FPROFILER =
+
+FPROFILER = -lprofiler
+#FPROFILER =
+
 FOPENMP = -fopenmp
 #FOPENMP =
-#FVECTORIZATION = -Rpass-missed=loop-vectorize -Rpass-analysis=loop-vectorize
+
 #FVECTORIZATION = -Rpass=loop-vectorize
+#FVECTORIZATION = -fopt-info-vec
 FVECTORIZATION =
-LDFLAGS = $(shell gsl-config --libs) -march=native \
-		  $(FOPENMP) $(FSANITIZATION) $(FPROFILER)
+
+LDFLAGS = $(FOPENMP) $(FSANITIZATION) $(FPROFILER) $(shell gsl-config --libs)
+
 CFLAGS = -DNDEBUG -O3 -march=native -ffast-math $(FOPENMP) $(FVECTORIZATION)
 #CFLAGS = -g -Wshadow -Werror -Wall -O3 -march=native -ffast-math -std=c99 $(FOPENMP) $(FSANITIZATION)
 #CFLAGS = -g -O0 $(FOPENMP) $(FSANITIZATION)
@@ -25,7 +31,7 @@ all: sampler tags
 	$(CC) $(CFLAGS) -c $< -o $@
 
 sampler: $(OBJECTS)
-	$(CC) $(LDFLAGS) $(OBJECTS) -o sampler
+	$(CC) $(OBJECTS) $(LDFLAGS) -o sampler
 
 .PHONY: tags
 tags:
