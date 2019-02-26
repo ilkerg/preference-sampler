@@ -21,7 +21,6 @@ const size_t M=3;
 
 #include "helpers.h"
 #include "model.h"
-#include "simplex.h"
 #include "set_counter.h"
 
 #define to_string(arr, k) \
@@ -80,192 +79,6 @@ move_gibbs(double random_numbers[2*(K-1)], double th[K], size_t ngames,
     return accepted;
 }
 
-unsigned int
-move_simplex_transform(const gsl_rng *r, const double th[K], double new_th[K],
-                       size_t ngames, const size_t games[ngames][M],
-                       const size_t winners[ngames])
-{
-    unsigned int accepted;
-
-    /* forward transform */
-    double y[K-1];
-    double y_prime[K-1];
-    double th_p[K];
-    transform(th, y);
-
-    /* move */
-    gsl_vector *mu = gsl_vector_alloc(K-1);
-    gsl_vector *res = gsl_vector_alloc(K-1);
-    for(size_t k=0; k<K-1; k++)
-        gsl_vector_set(mu, k, y[k]);
-    gsl_matrix *sigma = gsl_matrix_alloc(K-1, K-1);
-    gsl_matrix_set_identity(sigma);
-
-    gsl_ran_multivariate_gaussian(r, mu, sigma, res);
-    memcpy(y_prime, res->data, sizeof y_prime);
-
-    gsl_matrix_free(sigma);
-    gsl_vector_free(mu);
-    gsl_vector_free(res);
-
-    /* inverse transform */
-    inverse_transform(y_prime, th_p);
-
-    /* accept-reject */
-    double ll = loglik(th, ngames, games, winners);
-    double ll_p = loglik(th_p, ngames, games, winners);
-
-    double alpha = gsl_rng_uniform_pos(r);
-    if (log(alpha) < ll_p - ll) {
-        /* accept */
-        memcpy(new_th, th_p, K*sizeof(double));
-        accepted = 1;
-    } else {
-        /* reject */
-        memcpy(new_th, th, K*sizeof(double));
-        accepted = 0;
-    }
-
-    return accepted;
-}
-
-
-unsigned int
-move_dirichlet(const gsl_rng *r, const double th[K], double new_th[K],
-               size_t ngames, const size_t games[ngames][M],
-               const size_t winners[ngames])
-{
-    double th_p[K];
-    unsigned int accepted;
-
-    double alpha[K];
-    for (size_t k=0; k<K; k++) {
-        alpha[k] = 100*K*th[k];
-    }
-
-//#pragma omp critical
-    gsl_ran_dirichlet(r, K, alpha, th_p);
-
-    for (size_t k=0; k<K; k++) {
-        if (th_p[k] == 0)
-            th_p[k] = DBL_MIN;
-    }
-
-    /* accept-reject */
-    double ll = loglik(th, ngames, games, winners);
-    double ll_p = loglik(th_p, ngames, games, winners);
-
-    double alpha_p[K];
-    for (size_t k=0; k<K; k++) {
-        alpha_p[k] = 100*K*th_p[k];
-    }
-
-    double t_xy = gsl_ran_dirichlet_lnpdf(K, alpha, th_p);
-    double t_yx = gsl_ran_dirichlet_lnpdf(K, alpha_p, th);
-
-    assert(gsl_finite(ll) == 1);
-    assert(gsl_finite(ll_p) == 1);
-
-    double a = gsl_rng_uniform_pos(r);
-    if (log(a) < ll_p - ll + t_yx - t_xy) {
-        /* accept */
-        memcpy(new_th, th_p, K*sizeof(double));
-        accepted = 1;
-    } else {
-        /* reject */
-        memcpy(new_th, th, K*sizeof(double));
-        accepted = 0;
-    }
-    return accepted;
-}
-
-unsigned int
-move_hamiltonian(const gsl_rng *r, const double th[K], double new_th[K],
-                 size_t ngames, const size_t games[ngames][M],
-                 const size_t winners[ngames])
-{
-    const size_t L = 20;
-    double th_p[K];
-    unsigned int accepted;
-
-    double p[K-1];
-    double grad[K-1];
-    double epsilon;
-    double e_initial = .0;
-    double e_final = 0.;
-
-    memcpy(th_p, th, K*sizeof(double));
-
-    /* sample momentum */
-    for (size_t k=0; k<K-1; k++) {
-        p[k] = gsl_ran_gaussian(r, 1.);
-        e_initial += .5 * p[k] * p[k];
-    }
-    double U = potential(th, ngames, games, winners);
-    e_initial += U;
-
-    /* leapfrog (epsilon, L) */
-    grad_potential(th, ngames, games, winners, grad);
-    double amg = fabs(max(grad, K-1));
-
-    epsilon = .05 * sqrt(.2 / amg) / K;
-
-    for (size_t l=0; l<L; l++) {
-        for (size_t k=0; k<K-1; k++) {
-            p[k] -= .5*epsilon*grad[k];
-            th_p[k] += epsilon*p[k];
-        }
-
-        /* update implicit coordinate of th_p */
-        th_p[K-1] = 1. - sum(th_p, K-1);
-
-        grad_potential(th_p, ngames, games, winners, grad);
-
-        for (size_t k=0; k<K-1; k++) {
-            p[k] -= .5*epsilon*grad[k];
-        }
-    }
-
-
-    /*
-     * if new position is out of the simplex
-     * because of numerical issues
-     * simply reject
-     */
-    for (size_t k=0; k<K; k++) {
-        if (th_p[k] < 0.) {
-            memcpy(new_th, th, K*sizeof(double));
-            return 0;
-        }
-    }
-
-    assert(gsl_fcmp(sum(th_p, K), 1.0, 1e-15) == 0);
-
-    /* final total energy */
-    for (size_t k=0; k<K-1; k++)
-        e_final += .5 * p[k] * p[k];
-
-    U = potential(th_p, ngames, games, winners);
-    e_final += U;
-
-    /* accept-reject */
-    assert(gsl_finite(e_initial) == 1);
-    assert(gsl_finite(e_final) == 1);
-
-    double a = gsl_rng_uniform_pos(r);
-    if (log(a) < e_final - e_initial) {
-        /* accept */
-        memcpy(new_th, th_p, K*sizeof(double));
-        accepted = 1;
-    } else {
-        /* reject */
-        memcpy(new_th, th, K*sizeof(double));
-        accepted = 0;
-    }
-    return accepted;
-
-    return accepted;
-}
 
 void
 resample_move(const gsl_rng *r, double theta[N][K], const double w[N],
@@ -304,9 +117,6 @@ resample_move(const gsl_rng *r, double theta[N][K], const double w[N],
 #pragma omp parallel for reduction(+:accepted)
     for (size_t n=0; n<N; n++) {
         accepted += move_gibbs(random_numbers[n], theta_new[n], ngames, games, game_counts, wins);
-        /* accepted += move_simplex_transform(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
-        /* accepted += move_dirichlet(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
-        /* accepted += move_hamiltonian(r, S, M, K, theta[n], theta_new[n_new+i], x, y); */
     }
 
     printf("# to_move = %zu\n", N);
@@ -361,10 +171,6 @@ read_theta_star(const char *file_name, double theta_star[K])
 void
 sim(const gsl_rng *r, const double theta_star[K])
 {
-    /*
-     * theta stores current particles
-     * which represent current posterior density
-     */
     double (*theta)[K] = malloc(N * sizeof *theta);
     double *w = malloc(N * sizeof(double));
     double *logw = malloc(N * sizeof(double));
