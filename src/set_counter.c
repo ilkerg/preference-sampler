@@ -75,7 +75,7 @@ set_counter_free(struct set_counter *c)
 }
 
 void
-set_counter_add(struct set_counter *c, size_t key[M])
+set_counter_add(struct set_counter *c, const size_t key[M])
 {
     size_t sorted_key[M];
     memcpy(sorted_key, key, sizeof sorted_key);
