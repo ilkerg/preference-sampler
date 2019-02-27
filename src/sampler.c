@@ -3,7 +3,6 @@
 #include <string.h>
 #include <assert.h>
 #include <math.h>
-#include <float.h>
 
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
@@ -14,10 +13,10 @@
 #include <omp.h>
 #endif
 
-const size_t N=5000;
+const size_t N=5120;
 const size_t S=1000;
-const size_t K=50;
-const size_t M=3;
+const size_t K=64;
+const size_t M=4;
 
 #include "helpers.h"
 #include "model.h"

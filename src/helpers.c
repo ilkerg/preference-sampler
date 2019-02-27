@@ -41,26 +41,21 @@ zeros(double *arr, const size_t length)
 }
 
 double
-log_sum_exp(double *x, size_t length)
+log_sum_exp(const double *x, size_t length)
 {
     size_t i;
     double sum = 0;
-    double max = GSL_NEGINF;
+    double m = max(x, length);
 
     for (i = 0; i < length; i++) {
-        if (x[i] > max)
-            max = x[i];
+        sum += exp(x[i] - m);
     }
 
-    for (i = 0; i < length; i++) {
-        sum += exp(x[i] - max);
-    }
-
-    return max + log(sum);
+    return m + log(sum);
 }
 
 int
-is_in(size_t e, size_t *x, size_t length)
+is_in(size_t e, const size_t *x, size_t length)
 {
     for (size_t i=0; i < length; i++) {
         if (x[i] == e)
