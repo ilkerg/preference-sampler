@@ -20,8 +20,7 @@ OBJ_DIR = ../obj/
 OBJ = model.o helpers.o sampler.o set_counter.o
 OBJECTS = $(addprefix $(OBJ_DIR), $(OBJ))
 
-all: sampler tags
-	cp ./sampler ../bin/
+all: sampler
 
 ../obj/%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -37,3 +36,6 @@ tags:
 clean:
 	rm -f $(OBJ_DIR)*.o sampler
 
+.PHONY: install
+install:
+	cp ./sampler ../bin/
