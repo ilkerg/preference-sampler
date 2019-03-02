@@ -13,10 +13,10 @@
 #include <omp.h>
 #endif
 
-const size_t N=1024;
-const size_t S=128;
-const size_t K=16;
-const size_t M=4;
+const size_t N=5120;
+const size_t S=1000;
+const size_t K=64;
+const size_t M=2;
 
 #include "helpers.h"
 #include "model.h"
@@ -30,34 +30,29 @@ const size_t M=4;
 
 
 unsigned int
-move_gibbs(double random_numbers[2*(K-1)], double th[K], size_t ngames,
+move_gibbs(double *restrict random_numbers, double th[K], size_t ngames,
            const size_t games[ngames][M], const size_t game_counts[ngames],
            const size_t win_counts[K])
 {
-    double th_p[K];
     double ll, ll_p;
-    double alpha = .0;
-    unsigned int accepted = 0;
-
-    memcpy(th_p, th, sizeof th_p);
+    double alpha;
+    double th_comp_old;
+    unsigned int accepted;
 
     for (size_t comp=0; comp<K-1; comp++) {
-        assert(gsl_fcmp(sum(th_p, K), 1.0, 1e-15) == 0);
-        ll = fullcond(comp, th_p, ngames, games, game_counts, win_counts);
-        /* determine current sum of all the components
-         * except `comp` and the last one
-         * because the last component is chosen to be
-         * implicitly defined by the others
-         */
-        /* sample a suitable value for the current component */
-        th_p[comp] = *random_numbers++ * (th_p[comp] + th_p[K-1]);
+        assert(gsl_fcmp(sum(th, K), 1.0, 1e-15) == 0);
+        ll = fullcond(comp, th, ngames, games, game_counts, win_counts);
 
-        assert(th_p[comp] > .0);
-        th_p[K-1] += th[comp] - th_p[comp];
-        assert(th_p[K-1] > .0);
+        /* sample a suitable value for the current component */
+        th_comp_old = th[comp];
+        th[comp] = *random_numbers++ * (th[comp] + th[K-1]);
+
+        assert(th[comp] > .0);
+        th[K-1] += th_comp_old - th[comp];
+        assert(th[K-1] > .0);
 
         /* compute full conditional density at th_p */
-        ll_p = fullcond(comp, th_p, ngames, games, game_counts, win_counts);
+        ll_p = fullcond(comp, th, ngames, games, game_counts, win_counts);
 
         alpha = *random_numbers++;
         if (log(alpha) < ll_p - ll) {
@@ -67,14 +62,12 @@ move_gibbs(double random_numbers[2*(K-1)], double th[K], size_t ngames,
         else {
             /* reject */
             /* reset the proposed component back to its original value */
-            th_p[K-1] += th_p[comp] - th[comp];
-            th_p[comp] = th[comp];
-            assert(th_p[K-1] >= 0);
+            th[K-1] += th[comp] - th_comp_old;
+            th[comp] = th_comp_old;
+            assert(th[K-1] >= 0);
             accepted |= 0;
         }
     }
-
-    memcpy(th, th_p, sizeof th_p);
 
     return accepted;
 }
