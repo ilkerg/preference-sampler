@@ -13,9 +13,9 @@
 #include <omp.h>
 #endif
 
-const size_t N=5120;
-const size_t S=1000;
-const size_t K=64;
+const size_t N=1024;
+const size_t S=128;
+const size_t K=16;
 const size_t M=4;
 
 #include "helpers.h"
@@ -34,47 +34,48 @@ move_gibbs(double random_numbers[2*(K-1)], double th[K], size_t ngames,
            const size_t games[ngames][M], const size_t game_counts[ngames],
            const size_t win_counts[K])
 {
-    double theta_p[K];
+    double th_p[K];
     double ll, ll_p;
     double alpha = .0;
-    double current_total = .0;
     unsigned int accepted = 0;
 
-    memcpy(theta_p, th, sizeof theta_p);
+    memcpy(th_p, th, sizeof th_p);
+
     for (size_t comp=0; comp<K-1; comp++) {
-        assert(gsl_fcmp(sum(theta_p, K), 1.0, 1e-15) == 0);
-        ll = fullcond(comp, theta_p, ngames, games, game_counts, win_counts);
+        assert(gsl_fcmp(sum(th_p, K), 1.0, 1e-15) == 0);
+        ll = fullcond(comp, th_p, ngames, games, game_counts, win_counts);
         /* determine current sum of all the components
          * except `comp` and the last one
          * because the last component is chosen to be
          * implicitly defined by the others
          */
-        current_total = sum(theta_p, K-1) - theta_p[comp];
         /* sample a suitable value for the current component */
-        theta_p[comp] = random_numbers[2*comp] * (1 - current_total);
+        th_p[comp] = random_numbers[2*comp] * (th_p[comp] + th_p[K-1]);
 
-        assert(theta_p[comp] > .0);
-        theta_p[K-1] = 1 - sum(theta_p, K-1);
-        assert(theta_p[K-1] > .0);
+        assert(th_p[comp] > .0);
+        th_p[K-1] += th[comp] - th_p[comp];
+        assert(th_p[K-1] > .0);
 
-        /* compute full conditional density at theta_p */
-        ll_p = fullcond(comp, theta_p, ngames, games, game_counts, win_counts);
+        /* compute full conditional density at th_p */
+        ll_p = fullcond(comp, th_p, ngames, games, game_counts, win_counts);
 
         alpha = random_numbers[2*comp+1];
         if (log(alpha) < ll_p - ll) {
             /* accept */
-            /* ll = ll_p; */
-            accepted |= 1;
-        } else {
+            accepted = 1;
+        }
+        else {
             /* reject */
             /* reset the proposed component back to its original value */
-            theta_p[comp] = th[comp];
-            theta_p[K-1] = 1 - sum(theta_p, K-1);
-            assert(theta_p[K-1] >= 0);
+            th_p[K-1] += th_p[comp] - th[comp];
+            th_p[comp] = th[comp];
+            assert(th_p[K-1] >= 0);
             accepted |= 0;
         }
     }
-    memcpy(th, theta_p, sizeof theta_p);
+
+    memcpy(th, th_p, sizeof th_p);
+
     return accepted;
 }
 
