@@ -2,17 +2,13 @@
 CC = gcc
 
 #FSANITIZATION = -fsanitize=memory
-FSANITIZATION =
 
 #FPROFILER = -lprofiler
-FPROFILER =
 
 #FOPENMP = -fopenmp
-FOPENMP =
 
 #FVECTORIZATION = -Rpass=loop-vectorize
 #FVECTORIZATION = -fopt-info-vec
-FVECTORIZATION =
 
 LDFLAGS = $(FOPENMP) $(FSANITIZATION) $(FPROFILER) $(shell gsl-config --libs)
 
