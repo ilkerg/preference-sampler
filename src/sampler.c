@@ -238,11 +238,11 @@ sim(const gsl_rng *r, const double theta_star[K])
 #pragma omp parallel for
         for(size_t n = 0; n < N; n++) {
             double theta_winner = theta[n][winner];
-            double sum_theta = 0;
+            double lth_game[M];
             for (size_t m=0; m<M; m++) {
-                sum_theta += theta[n][players[m]];
+                lth_game[m] = log(theta[n][players[m]]);
             }
-            logw[n] += log(theta_winner) - log(sum_theta);
+            logw[n] += log(theta_winner) - log_sum_exp(lth_game, M);
         }
 
         /* compute w from logw */

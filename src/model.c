@@ -13,6 +13,7 @@ fullcond(const size_t comp, const double theta[K], size_t ngames,
     double ll = .0;
 
     double lth[K];
+#pragma omp simd
     for (size_t k=0; k<K; k++)
         lth[k] = log(theta[k]);
 
