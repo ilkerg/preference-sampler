@@ -12,8 +12,11 @@ fullcond(const size_t comp, const double theta[M], size_t ngames,
     double ll = .0;
 
     /* winners */
-    ll += win_counts[comp] * log(theta[comp]);
-    ll += win_counts[K-1] * log(theta[K-1]);
+    if (win_counts[comp] > 0)
+        ll += win_counts[comp] * log(theta[comp]);
+
+    if (win_counts[K-1] > 0)
+        ll += win_counts[K-1] * log(theta[K-1]);
 
     /* games */
     for (size_t i=0; i<ngames; i++) {
