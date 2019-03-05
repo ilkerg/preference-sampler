@@ -5,7 +5,7 @@
 #include "model.h"
 
 double
-fullcond(const size_t comp, const double theta[M], size_t ngames,
+fullcond(const size_t comp, const double theta[K], size_t ngames,
                 const size_t games[ngames][M], const size_t game_counts[ngames],
                 const size_t win_counts[K])
 {
