@@ -5,7 +5,7 @@ CC ?= gcc
 
 #FPROFILER = -lprofiler
 
-#FOPENMP = -fopenmp
+FOPENMP = -fopenmp
 
 #FVECTORIZATION = -Rpass=loop-vectorize
 #FVECTORIZATION = -fopt-info-vec

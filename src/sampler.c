@@ -16,7 +16,7 @@
 const size_t N=5120;
 const size_t S=1000;
 const size_t K=64;
-const size_t M=2;
+const size_t M=4;
 
 #include "helpers.h"
 #include "model.h"
