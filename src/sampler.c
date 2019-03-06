@@ -13,10 +13,10 @@
 #include <omp.h>
 #endif
 
-const size_t N=5120;
-const size_t S=1000;
-const size_t K=64;
-const size_t M=2;
+const size_t N=10000;
+const size_t S=10000;
+const size_t K=50;
+const size_t M=5;
 
 #include "helpers.h"
 #include "model.h"
@@ -24,10 +24,9 @@ const size_t M=2;
 
 #define to_string(arr, k) \
     for (size_t i = 0; i < k-1; i++) { \
-        printf("%lf,", arr[i]); \
+        printf("%.16lf,", arr[i]); \
     } \
-    printf("%lf", arr[k-1]);
-
+    printf("%.16lf", arr[k-1]);
 
 unsigned int
 move_gibbs(double *restrict random_numbers, double th[K], size_t ngames,
@@ -130,7 +129,7 @@ sample_theta_star(const gsl_rng *r, double theta_star[K])
     double ts[K];
     /* ones(a, K); */
     for (size_t k=0; k<K; k++) {
-        a[k] = 10. / K;
+        a[k] = .1;
     }
 
     gsl_ran_dirichlet(r, K, a, ts);
