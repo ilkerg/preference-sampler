@@ -129,7 +129,7 @@ sample_theta_star(const gsl_rng *r, double theta_star[K])
     double ts[K];
     /* ones(a, K); */
     for (size_t k=0; k<K; k++) {
-        a[k] = .1;
+        a[k] = 2;
     }
 
     gsl_ran_dirichlet(r, K, a, ts);
