@@ -1,5 +1,5 @@
 echo 'First 10 components of theta_star'
-grep star $1 | cut -d' ' -f4| cut -d',' -f1-10
+grep star $1 | cut -d' ' -f4 | tr ',' '\n' | awk '{print NR-1 " " $0}' | sort -nrk 2 | head -10 | tr ' ' '\t'
 
 echo ''
 
