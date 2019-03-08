@@ -1,10 +1,8 @@
 #CC ?= clang
-CC ?= gcc
+CC = gcc
 
 #FSANITIZATION = -fsanitize=memory
-
 #FPROFILER = -lprofiler
-
 FOPENMP = -fopenmp
 
 #FVECTORIZATION = -Rpass=loop-vectorize

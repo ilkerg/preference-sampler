@@ -16,7 +16,7 @@
 const size_t N=5120;
 const size_t S=1000;
 const size_t K=64;
-const size_t M=4;
+const size_t M=2;
 
 #include "helpers.h"
 #include "model.h"
@@ -127,17 +127,11 @@ void
 sample_theta_star(const gsl_rng *r, double theta_star[K])
 {
     double a[K];
-    double ts[K];
-    /* ones(a, K); */
     for (size_t k=0; k<K; k++) {
-        a[k] = 10. / K;
+        a[k] = .1;
     }
 
-    gsl_ran_dirichlet(r, K, a, ts);
-    for (size_t k=0; k<K; k++) {
-        assert(ts[k] > 0.);
-    }
-    gsl_sort_largest(theta_star, K, ts, 1, K);
+    gsl_ran_dirichlet(r, K, a, theta_star);
 }
 
 void
@@ -190,7 +184,7 @@ sim(const gsl_rng *r, const double theta_star[K])
 
     for(size_t s = 0; s < S; s++) {
         fprintf(stderr, "s = %zu\r", s); /* for progress monitoring */
-        printf("iteration = %zu\n", s);
+        printf("# iteration = %zu\n", s);
 
         /* sample a theta from the current posterior */
         gsl_ran_discrete_t *g = gsl_ran_discrete_preproc(N, w);
