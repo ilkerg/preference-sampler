@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <immintrin.h>
 
 #include "model.h"
 #include "helpers.h"
@@ -21,23 +22,18 @@ fullcond(const size_t comp, const double logtheta[K], size_t ngames,
 
     /* games */
     for (size_t i=0; i<ngames; i++) {
-        bool comp_plays = false;
-        bool K_plays = false;
+        __m256i idx = _mm256_lddqu_si256((__m256i const *)games[i]);
+        __m256i vcomp = _mm256_set1_epi64x(comp);
+        __m256i vKm1 = _mm256_set1_epi64x(K-1);
 
-        for (size_t m=0; m<M; m++) {
-            if (games[i][m]==comp)
-                comp_plays = true;
-            else if (games[i][m]==K-1)
-                K_plays = true;
-        }
+        __m256i xx = _mm256_cmpeq_epi64(idx, vcomp);
+        __m256i yy = _mm256_cmpeq_epi64(idx, vKm1);
+        __m256i zz = _mm256_or_si256(xx, yy);
 
-        if (comp_plays != K_plays) {
-            double logth_game[M];
-            for (size_t m = 0; m < M; m++) {
-                logth_game[m] = logtheta[games[i][m]];
-            }
+        if (_mm256_testz_si256(xx, zz) != _mm256_testc_si256(xx, zz)) {
+            __m256d th_game_i = _mm256_i64gather_pd(logtheta, idx, 8);
 
-            ll -= game_counts[i] * log_sum_exp(logth_game, M);
+            ll -= game_counts[i] * log_sum_exp((const double *)&th_game_i, M);
         }
     }
 

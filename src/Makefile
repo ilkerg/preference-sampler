@@ -12,7 +12,7 @@ LDFLAGS = $(FOPENMP) $(FSANITIZATION) $(FPROFILER) $(shell gsl-config --libs)
 
 CFLAGS = -DNDEBUG -ggdb -O3 -march=native -ffast-math $(FOPENMP) $(FVECTORIZATION)
 #CFLAGS = -g -Wshadow -Werror -Wall -O3 -march=native -ffast-math -std=c99 $(FOPENMP) $(FSANITIZATION)
-#CFLAGS = -g -O0 $(FOPENMP) $(FSANITIZATION)
+#CFLAGS = -g -O0 -march=native $(FOPENMP) $(FSANITIZATION)
 
 OBJ_DIR = ../obj/
 OBJ = model.o helpers.o sampler.o set_counter.o

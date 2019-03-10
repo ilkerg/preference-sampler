@@ -41,7 +41,7 @@ move_gibbs(double *restrict random_numbers, double logth[K], size_t ngames,
     unsigned int accepted = 0;
 
     for (size_t comp=0; comp<K-1; comp++) {
-        assert(gsl_fcmp(log_sum_exp(logth, K), 1.0, 1e-15) == 0);
+        /* assert(gsl_fcmp(log_sum_exp(logth, K), 0.0, 1e-12) == 0); */
         ll = fullcond(comp, logth, ngames, games, game_counts, win_counts);
 
         /* sample a suitable value for the current component */
