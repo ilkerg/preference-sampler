@@ -6,23 +6,18 @@
 #include "helpers.h"
 
 double
-fullcond(const size_t comp, const double theta[K], size_t ngames,
+fullcond(const size_t comp, const double logtheta[K], size_t ngames,
                 const size_t games[ngames][M], const size_t game_counts[ngames],
                 const size_t win_counts[K])
 {
     double ll = .0;
 
-    double lth[K];
-#pragma omp simd
-    for (size_t k=0; k<K; k++)
-        lth[k] = log(theta[k]);
-
     /* winners */
     if (win_counts[comp] > 0)
-        ll += win_counts[comp] * lth[comp];
+        ll += win_counts[comp] * logtheta[comp];
 
     if (win_counts[K-1] > 0)
-        ll += win_counts[K-1] * lth[K-1];
+        ll += win_counts[K-1] * logtheta[K-1];
 
     /* games */
     for (size_t i=0; i<ngames; i++) {
@@ -37,12 +32,12 @@ fullcond(const size_t comp, const double theta[K], size_t ngames,
         }
 
         if (comp_plays != K_plays) {
-            double lth_game[M];
+            double logth_game[M];
             for (size_t m = 0; m < M; m++) {
-                lth_game[m] = lth[games[i][m]];
+                logth_game[m] = logtheta[games[i][m]];
             }
 
-            ll -= game_counts[i] * log_sum_exp(lth_game, M);
+            ll -= game_counts[i] * log_sum_exp(logth_game, M);
         }
     }
 

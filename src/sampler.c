@@ -15,8 +15,8 @@
 
 const size_t N=5120;
 const size_t S=1000;
-const size_t K=64;
-const size_t M=2;
+const size_t K=128;
+const size_t M=4;
 
 #include "helpers.h"
 #include "model.h"
@@ -30,29 +30,34 @@ const size_t M=2;
 
 
 unsigned int
-move_gibbs(double *restrict random_numbers, double th[K], size_t ngames,
+move_gibbs(double *restrict random_numbers, double logth[K], size_t ngames,
            const size_t games[ngames][M], const size_t game_counts[ngames],
            const size_t win_counts[K])
 {
     double ll, ll_p;
     double alpha;
-    double th_comp_old;
+    double logth_comp_old;
+    double logth_Km1_old;
     unsigned int accepted;
 
     for (size_t comp=0; comp<K-1; comp++) {
-        assert(gsl_fcmp(sum(th, K), 1.0, 1e-15) == 0);
-        ll = fullcond(comp, th, ngames, games, game_counts, win_counts);
+        assert(gsl_fcmp(log_sum_exp(logth, K), 1.0, 1e-15) == 0);
+        ll = fullcond(comp, logth, ngames, games, game_counts, win_counts);
 
         /* sample a suitable value for the current component */
-        th_comp_old = th[comp];
-        th[comp] = *random_numbers++ * (th[comp] + th[K-1]);
+        logth_comp_old = logth[comp];
+        logth_Km1_old = logth[K-1];
 
-        assert(th[comp] > .0);
-        th[K-1] += th_comp_old - th[comp];
-        assert(th[K-1] > .0);
+        if (logth_comp_old > logth[K-1]) {
+            logth[comp] = log(*random_numbers++) + logth_comp_old + log1p(exp(logth[K-1] - logth_comp_old));
+            logth[K-1] = logth_comp_old + log1p(exp(logth_Km1_old - logth_comp_old) - exp(logth[comp] - logth_comp_old));
+        } else {
+            logth[comp] = log(*random_numbers++) + logth_Km1_old + log1p(exp(logth_comp_old - logth_Km1_old));
+            logth[K-1] = logth_Km1_old + log1p(exp(logth_comp_old - logth_Km1_old) - exp(logth[comp] - logth_Km1_old));
+        }
 
         /* compute full conditional density at th_p */
-        ll_p = fullcond(comp, th, ngames, games, game_counts, win_counts);
+        ll_p = fullcond(comp, logth, ngames, games, game_counts, win_counts);
 
         alpha = *random_numbers++;
         if (log(alpha) < ll_p - ll) {
@@ -62,9 +67,11 @@ move_gibbs(double *restrict random_numbers, double th[K], size_t ngames,
         else {
             /* reject */
             /* reset the proposed component back to its original value */
-            th[K-1] += th[comp] - th_comp_old;
-            th[comp] = th_comp_old;
-            assert(th[K-1] >= 0);
+            /* th[K-1] += th[comp] - th_comp_old; */
+            /* th[comp] = th_comp_old; */
+            /* assert(th[K-1] >= 0); */
+            logth[comp] = logth_comp_old;
+            logth[K-1] = logth_Km1_old;
             accepted |= 0;
         }
     }
@@ -74,7 +81,7 @@ move_gibbs(double *restrict random_numbers, double th[K], size_t ngames,
 
 
 void
-resample_move(const gsl_rng *r, double theta[N][K], const double w[N],
+resample_move(const gsl_rng *r, double logtheta[N][K], const double w[N],
               const struct set_counter *games_counter, const size_t wins[K])
 {
     unsigned int cnt[N];
@@ -83,11 +90,11 @@ resample_move(const gsl_rng *r, double theta[N][K], const double w[N],
     gsl_ran_multinomial(r, N, N, w, cnt);
 
     /* populate particles */
-    double (*theta_new)[K] = malloc(N * sizeof *theta_new);
+    double (*logtheta_new)[K] = malloc(N * sizeof *logtheta_new);
     size_t n_new = 0;
     for (size_t n=0; n<N; n++) {
         for (size_t i=0; i < cnt[n]; i++) {
-            memcpy(theta_new[n_new++], theta[n], sizeof *theta_new);
+            memcpy(logtheta_new[n_new++], logtheta[n], sizeof *logtheta_new);
         }
     }
 
@@ -109,15 +116,15 @@ resample_move(const gsl_rng *r, double theta[N][K], const double w[N],
 
 #pragma omp parallel for reduction(+:accepted)
     for (size_t n=0; n<N; n++) {
-        accepted += move_gibbs(random_numbers[n], theta_new[n], ngames, games, game_counts, wins);
+        accepted += move_gibbs(random_numbers[n], logtheta_new[n], ngames, games, game_counts, wins);
     }
 
     printf("# to_move = %zu\n", N);
     printf("# accepted = %zu\n", accepted);
     printf("# acceptance ratio = %lf\n", (double) accepted / N);
 
-    memcpy(theta, theta_new, N*K*sizeof(double));
-    free(theta_new);
+    memcpy(logtheta, logtheta_new, N*K*sizeof(double));
+    free(logtheta_new);
     free(random_numbers);
     free(games);
     free(game_counts);
@@ -158,7 +165,7 @@ read_theta_star(const char *file_name, double theta_star[K])
 void
 sim(const gsl_rng *r, const double theta_star[K])
 {
-    double (*theta)[K] = malloc(N * sizeof *theta);
+    double (*logtheta)[K] = malloc(N * sizeof *logtheta);
     double *w = malloc(N * sizeof(double));
     double *logw = malloc(N * sizeof(double));
 
@@ -177,8 +184,12 @@ sim(const gsl_rng *r, const double theta_star[K])
     {
         double alpha[K];
         ones(alpha, K);
+        double theta[K];
         for (size_t n = 0; n < N; n++) {
-            gsl_ran_dirichlet(r, K, alpha, theta[n]);
+            gsl_ran_dirichlet(r, K, alpha, theta);
+#pragma omp simd
+            for (size_t k=0; k<K; k++)
+                logtheta[n][k] = log(theta[k]);
         }
     }
 
@@ -192,12 +203,12 @@ sim(const gsl_rng *r, const double theta_star[K])
         gsl_ran_discrete_free(g);
 
         printf("# sampled theta: ");
-        to_string(theta[theta_sample_idx], K);
+        to_string(logtheta[theta_sample_idx], K);
         printf("\n");
 
         /* pick M elements from current sample */
         size_t players[M];
-        gsl_sort_largest_index(players, M, theta[theta_sample_idx], 1, K);
+        gsl_sort_largest_index(players, M, logtheta[theta_sample_idx], 1, K);
 
         set_counter_add(games_counter, players);
         printf("# number of unique subsets so far: %zu\n", games_counter->size);
@@ -231,12 +242,12 @@ sim(const gsl_rng *r, const double theta_star[K])
         /* update weights */
 #pragma omp parallel for
         for(size_t n = 0; n < N; n++) {
-            double theta_winner = theta[n][winner];
+            double logtheta_winner = logtheta[n][winner];
             double lth_game[M];
             for (size_t m=0; m<M; m++) {
-                lth_game[m] = log(theta[n][players[m]]);
+                lth_game[m] = logtheta[n][players[m]];
             }
-            logw[n] += log(theta_winner) - log_sum_exp(lth_game, M);
+            logw[n] += logtheta_winner - log_sum_exp(lth_game, M);
         }
 
         /* compute w from logw */
@@ -260,7 +271,7 @@ sim(const gsl_rng *r, const double theta_star[K])
 
             if (ess < .5*N) {
                 printf("# resampling at iteration %zu\n", s);
-                resample_move(r, theta, w, games_counter, wins);
+                resample_move(r, logtheta, w, games_counter, wins);
                 ones(w, N);
                 zeros(logw, N);
             }
@@ -272,18 +283,18 @@ sim(const gsl_rng *r, const double theta_star[K])
 
     /* resample at the end  */
     printf("# resampling at iteration %zu\n", S);
-    resample_move(r, theta, w, games_counter, wins);
+    resample_move(r, logtheta, w, games_counter, wins);
     /* no need to reset the weights at this point but just to be safe... */
     ones(w, N);
     zeros(logw, N);
 
     for(size_t n = 0; n < N; n++) {
-        to_string(theta[n], K);
+        to_string(logtheta[n], K);
         printf("\n");
     }
 
     /* cleanup */
-    free(theta);
+    free(logtheta);
     free(w);
     free(logw);
     free(wins);

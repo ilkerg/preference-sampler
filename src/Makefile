@@ -1,4 +1,4 @@
-#CC ?= clang
+#CC = clang
 CC = gcc
 
 #FSANITIZATION = -fsanitize=memory
