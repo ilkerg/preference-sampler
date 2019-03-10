@@ -15,8 +15,8 @@
 
 const size_t N=5120;
 const size_t S=1000;
-const size_t K=64;
-const size_t M=2;
+const size_t K=128;
+const size_t M=4;
 
 #include "helpers.h"
 #include "model.h"
@@ -41,23 +41,20 @@ move_gibbs(double *restrict random_numbers, double logth[K], size_t ngames,
     unsigned int accepted;
 
     for (size_t comp=0; comp<K-1; comp++) {
-        assert(gsl_fcmp(log_sum_ex(logth, K), 1.0, 1e-15) == 0);
+        assert(gsl_fcmp(log_sum_exp(logth, K), 1.0, 1e-15) == 0);
         ll = fullcond(comp, logth, ngames, games, game_counts, win_counts);
 
         /* sample a suitable value for the current component */
         logth_comp_old = logth[comp];
         logth_Km1_old = logth[K-1];
 
-        if (logth[comp] > logth[K-1]) {
-            logth[comp] = log(*random_numbers++) + logth[comp] + log1p(exp(logth[K-1] - logth[comp]));
+        if (logth_comp_old > logth[K-1]) {
+            logth[comp] = log(*random_numbers++) + logth_comp_old + log1p(exp(logth[K-1] - logth_comp_old));
+            logth[K-1] = logth_comp_old + log1p(exp(logth_Km1_old - logth_comp_old) - exp(logth[comp] - logth_comp_old));
         } else {
-            logth[comp] = log(*random_numbers++) + logth[K-1] + log1p(exp(logth[comp] - logth[K-1]));
+            logth[comp] = log(*random_numbers++) + logth_Km1_old + log1p(exp(logth_comp_old - logth_Km1_old));
+            logth[K-1] = logth_Km1_old + log1p(exp(logth_comp_old - logth_Km1_old) - exp(logth[comp] - logth_Km1_old));
         }
-
-        logth[K-1] = log(exp(logth[K-1]) + exp(logth_comp_old) - exp(logth[comp]));
-        /* assert(th[comp] > .0); */
-        /* th[K-1] += th_comp_old - th[comp]; */
-        /* assert(th[K-1] > .0); */
 
         /* compute full conditional density at th_p */
         ll_p = fullcond(comp, logth, ngames, games, game_counts, win_counts);
