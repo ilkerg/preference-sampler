@@ -38,7 +38,7 @@ move_gibbs(double *restrict random_numbers, double logth[K], size_t ngames,
     double alpha;
     double logth_comp_old;
     double logth_Km1_old;
-    unsigned int accepted;
+    unsigned int accepted = 0;
 
     for (size_t comp=0; comp<K-1; comp++) {
         assert(gsl_fcmp(log_sum_exp(logth, K), 1.0, 1e-15) == 0);
@@ -72,7 +72,6 @@ move_gibbs(double *restrict random_numbers, double logth[K], size_t ngames,
             /* assert(th[K-1] >= 0); */
             logth[comp] = logth_comp_old;
             logth[K-1] = logth_Km1_old;
-            accepted |= 0;
         }
     }
 

@@ -1,9 +1,8 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
-#include <gsl/gsl_math.h>
-#include <gsl/gsl_sf_log.h>
-#include <gsl/gsl_sf_exp.h>
+#include <math.h>
+#include <float.h>
 
 double
 sum(const double *x, const size_t length)
@@ -18,7 +17,7 @@ sum(const double *x, const size_t length)
 double
 max(const double *x, const size_t length)
 {
-    double max = GSL_NEGINF;
+    double max = -DBL_MAX;
     for(size_t i = 0; i < length; i++) {
         if (x[i] > max)
             max = x[i];
