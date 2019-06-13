@@ -13,10 +13,11 @@
 #include <omp.h>
 #endif
 
-const size_t N=5120;
-const size_t S=1000;
-const size_t K=128;
-const size_t M=4;
+const size_t N=1000;
+const size_t S=10000;
+const size_t K=20;
+const size_t M=2;
+const double alpha_k = 0.5;
 
 #include "helpers.h"
 #include "model.h"
@@ -24,9 +25,9 @@ const size_t M=4;
 
 #define to_string(arr, k) \
     for (size_t i = 0; i < k-1; i++) { \
-        printf("%lf,", arr[i]); \
+        printf("%.16lf,", arr[i]); \
     } \
-    printf("%lf", arr[k-1]);
+    printf("%.16lf", arr[k-1]);
 
 
 unsigned int
@@ -134,7 +135,7 @@ sample_theta_star(const gsl_rng *r, double theta_star[K])
 {
     double a[K];
     for (size_t k=0; k<K; k++) {
-        a[k] = .1;
+        a[k] = alpha_k;
     }
 
     gsl_ran_dirichlet(r, K, a, theta_star);
