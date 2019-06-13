@@ -8,7 +8,8 @@ FOPENMP = -fopenmp
 #FVECTORIZATION = -Rpass=loop-vectorize
 #FVECTORIZATION = -fopt-info-vec
 
-LDFLAGS = $(FOPENMP) $(FSANITIZATION) $(FPROFILER) $(shell gsl-config --libs)
+#LDFLAGS = $(FOPENMP) $(FSANITIZATION) $(FPROFILER) $(shell /usr/local/bin/gsl-config --libs)
+LDFLAGS = $(FOPENMP) $(FSANITIZATION) $(FPROFILER) $(shell /usr/bin/gsl-config --libs)
 
 CFLAGS = -DNDEBUG -ggdb -O3 -march=native -ffast-math $(FOPENMP) $(FVECTORIZATION)
 #CFLAGS = -g -Wshadow -Werror -Wall -O3 -march=native -ffast-math -std=c99 $(FOPENMP) $(FSANITIZATION)
