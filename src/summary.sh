@@ -5,7 +5,7 @@ echo ''
 
 echo 'Top 10 presentations'
 
-grep largest $1 | cut -d' ' -f5 \
+grep game $1 | cut -d' ' -f3 \
     | awk '{
     split($0, arr, ",");
     asort(arr);
