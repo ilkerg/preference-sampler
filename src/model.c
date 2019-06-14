@@ -7,7 +7,7 @@
 
 double
 fullcond(const size_t comp, const double logtheta[K], size_t ngames,
-                const size_t games[ngames][M], const size_t game_counts[ngames],
+                const size_t games[ngames][L], const size_t game_counts[ngames],
                 const size_t win_counts[K])
 {
     double ll = .0;
@@ -24,20 +24,20 @@ fullcond(const size_t comp, const double logtheta[K], size_t ngames,
         bool comp_plays = false;
         bool K_plays = false;
 
-        for (size_t m=0; m<M; m++) {
-            if (games[i][m]==comp)
+        for (size_t l=0; l<L; l++) {
+            if (games[i][l]==comp)
                 comp_plays = true;
-            else if (games[i][m]==K-1)
+            else if (games[i][l]==K-1)
                 K_plays = true;
         }
 
         if (comp_plays != K_plays) {
-            double logth_game[M];
-            for (size_t m = 0; m < M; m++) {
-                logth_game[m] = logtheta[games[i][m]];
+            double logth_game[L];
+            for (size_t l = 0; l < L; l++) {
+                logth_game[l] = logtheta[games[i][l]];
             }
 
-            ll -= game_counts[i] * log_sum_exp(logth_game, M);
+            ll -= game_counts[i] * log_sum_exp(logth_game, L);
         }
     }
 
