@@ -14,10 +14,17 @@
 #endif
 
 const size_t N=1000;
-const size_t S=10000;
+const size_t S=100;
 const size_t K=20;
 const size_t M=2;
 const double alpha_k = 0.5;
+
+/*
+ * 0: thompson sampling
+ * 1: uniform subset
+ *
+ */
+const unsigned int strategy = 1;
 
 #include "helpers.h"
 #include "model.h"
@@ -197,25 +204,37 @@ sim(const gsl_rng *r, const double theta_star[K])
         fprintf(stderr, "s = %zu\r", s); /* for progress monitoring */
         printf("# iteration = %zu\n", s);
 
-        /* sample a theta from the current posterior */
-        gsl_ran_discrete_t *g = gsl_ran_discrete_preproc(N, w);
-        size_t theta_sample_idx = gsl_ran_discrete(r, g);
-        gsl_ran_discrete_free(g);
-
-        printf("# sampled theta: ");
-        to_string(logtheta[theta_sample_idx], K);
-        printf("\n");
-
-        /* pick M elements from current sample */
         size_t players[M];
-        gsl_sort_largest_index(players, M, logtheta[theta_sample_idx], 1, K);
+        if (strategy == 0) {
+            /* presentation strategy: thompson sampling */
+            printf("# strategy: thompson\n");
+            /* sample a theta from the current posterior */
+            gsl_ran_discrete_t *g = gsl_ran_discrete_preproc(N, w);
+            size_t theta_sample_idx = gsl_ran_discrete(r, g);
+            gsl_ran_discrete_free(g);
+
+            printf("# sampled theta: ");
+            to_string(logtheta[theta_sample_idx], K);
+            printf("\n");
+
+            /* pick M elements from current sample */
+            gsl_sort_largest_index(players, M, logtheta[theta_sample_idx], 1, K);
+        } else if (strategy == 1) {
+            /* presentation strategy: uniform subset */
+            printf("# strategy: uniform subset\n");
+            size_t idx[K];
+            for (size_t k=0; k<K; k++)
+                idx[k] = k;
+
+            gsl_ran_choose(r, players, M, idx, K, sizeof(size_t));
+        }
 
         set_counter_add(games_counter, players);
         printf("# number of unique subsets so far: %zu\n", games_counter->size);
 
         double player_w[M];
 
-        printf("# %zu largest elements: ", M);
+        printf("# game: ");
         for (size_t m=0; m<M-1; m++) {
             printf("%zu,", players[m]);
             player_w[m] = theta_star[players[m]];
@@ -230,7 +249,7 @@ sim(const gsl_rng *r, const double theta_star[K])
         /* determine outcome using theta_star */
         size_t winner;
         {
-            g = gsl_ran_discrete_preproc(M, player_w);
+            gsl_ran_discrete_t *g = gsl_ran_discrete_preproc(M, player_w);
             size_t wn = gsl_ran_discrete(r, g);
             winner = players[wn];
             gsl_ran_discrete_free(g);
