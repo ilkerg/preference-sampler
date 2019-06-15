@@ -13,8 +13,8 @@
 #include <omp.h>
 #endif
 
-const size_t N=1000;
-const size_t T=100;
+const size_t N=10000;
+const size_t T=1000;
 const size_t K=20;
 const size_t L=2;
 const double alpha_k = 0.5;
@@ -24,7 +24,7 @@ const double alpha_k = 0.5;
  * 1: uniform subset
  *
  */
-const unsigned int strategy = 1;
+const unsigned int strategy = 0;
 
 #include "helpers.h"
 #include "model.h"
@@ -324,13 +324,13 @@ sim(const gsl_rng *r, const double theta_star[K])
 int
 main(int argc, char *argv[])
 {
-    const gsl_rng_type *T;
+    const gsl_rng_type *t;
     gsl_rng *r;
 
     gsl_rng_env_setup();
 
-    T = gsl_rng_default;
-    r = gsl_rng_alloc(T);
+    t = gsl_rng_default;
+    r = gsl_rng_alloc(t);
 
     gsl_set_error_handler_off();
 
