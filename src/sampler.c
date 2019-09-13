@@ -138,17 +138,6 @@ resample_move(const gsl_rng *r, double logtheta[N][K], const double w[N],
 }
 
 void
-sample_theta_star(const gsl_rng *r, double theta_star[K])
-{
-    double a[K];
-    for (size_t k=0; k<K; k++) {
-        a[k] = alpha_k;
-    }
-
-    gsl_ran_dirichlet(r, K, a, theta_star);
-}
-
-void
 read_theta_star(const char *file_name, double theta_star[K])
 {
     char buf[80];
@@ -170,7 +159,7 @@ read_theta_star(const char *file_name, double theta_star[K])
 }
 
 void
-sim(const gsl_rng *r, const double theta_star[K])
+sim(const gsl_rng *r, const double theta_star[K], const int promoted_index, const char *prior_file)
 {
     double (*logtheta)[K] = malloc(N * sizeof *logtheta);
     double *w = malloc(N * sizeof(double));
@@ -200,6 +189,41 @@ sim(const gsl_rng *r, const double theta_star[K])
         }
     }
 
+
+    /* apply prior interactions */
+    {
+        char game[255] = {0};
+        size_t players[K];
+        size_t winner;
+
+        FILE *f = fopen(prior_file, "r");
+        if (!f) {
+            fprintf(stderr, "error reading %s\n", prior_file);
+            exit(EXIT_FAILURE);
+        }
+
+        while(fscanf(f, "%s %zu", game, &winner) != EOF) {
+            char *token = strtok(game, ",");
+            for(size_t k=0; k<K; k++) {
+                players[k] = (size_t) atoi(token);
+                token = strtok(NULL, ",");
+            }
+
+            /* update weights */
+#pragma omp parallel for
+            for(size_t n = 0; n < N; n++) {
+                double logtheta_winner = logtheta[n][winner];
+                double lth_game[L];
+                for (size_t l=0; l<L; l++) {
+                    lth_game[l] = logtheta[n][players[l]];
+                }
+                logw[n] += logtheta_winner - log_sum_exp(lth_game, L);
+            }
+        }
+
+        fclose(f);
+    }
+
     for(size_t t = 0; t < T; t++) {
         fprintf(stderr, "t = %zu\r", t); /* for progress monitoring */
         printf("# iteration = %zu\n", t);
@@ -218,7 +242,16 @@ sim(const gsl_rng *r, const double theta_star[K])
             printf("\n");
 
             /* pick L elements from current sample */
-            gsl_sort_largest_index(players, L, logtheta[theta_sample_idx], 1, K);
+            if (promoted_index == -1) {
+                gsl_sort_largest_index(players, L, logtheta[theta_sample_idx], 1, K);
+            }
+            else {
+                double logtheta_hack[K];
+                memcpy(&logtheta_hack, logtheta[theta_sample_idx], sizeof logtheta_hack);
+
+                gsl_sort_largest_index(players, L, logtheta_hack, 1, K);
+            }
+
         } else if (strategy == 1) {
             /* presentation strategy: uniform subset */
             printf("# strategy: uniform subset\n");
@@ -324,6 +357,10 @@ sim(const gsl_rng *r, const double theta_star[K])
 int
 main(int argc, char *argv[])
 {
+    if (argc < 2) {
+        printf("need more input\n");
+        exit(EXIT_FAILURE);
+    }
     const gsl_rng_type *t;
     gsl_rng *r;
 
@@ -335,11 +372,18 @@ main(int argc, char *argv[])
     gsl_set_error_handler_off();
 
     double *theta_star = malloc(K * sizeof(double));
+    int promoted_index = -1;
+    char *prior_file = "";
+
     /* read theta_star from a file */
-    if (argc==2)
-        read_theta_star(argv[1], theta_star);
-    else
-        sample_theta_star(r, theta_star);
+    //read_theta_star(argv[1], theta_star);
+    if (argc > 2) {
+        promoted_index = atoi(argv[2]);
+        if (promoted_index < 0 || promoted_index > K-1)
+            promoted_index = -1;
+
+        prior_file = argv[3];
+    }
 
     printf("# K = %zu\n", K);
     printf("# N = %zu\n", N);
@@ -348,9 +392,11 @@ main(int argc, char *argv[])
     printf("# theta_star = ");
     to_string(theta_star, K);
     printf("\n");
+    printf("# promoted_index = %d\n", promoted_index);
+    printf("# prior_file = %s\n", prior_file);
 
     // perform simulation
-    sim(r, theta_star);
+    sim(r, theta_star, promoted_index, prior_file);
 
     // cleanup
     free(theta_star);
