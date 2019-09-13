@@ -201,7 +201,7 @@ sim(const gsl_rng *r, const double theta_star[K])
     }
 
     for(size_t t = 0; t < T; t++) {
-        fprintf(stderr, "s = %zu\r", t); /* for progress monitoring */
+        fprintf(stderr, "t = %zu\r", t); /* for progress monitoring */
         printf("# iteration = %zu\n", t);
 
         size_t players[L];
@@ -217,7 +217,7 @@ sim(const gsl_rng *r, const double theta_star[K])
             to_string(logtheta[theta_sample_idx], K);
             printf("\n");
 
-            /* pick M elements from current sample */
+            /* pick L elements from current sample */
             gsl_sort_largest_index(players, L, logtheta[theta_sample_idx], 1, K);
         } else if (strategy == 1) {
             /* presentation strategy: uniform subset */
