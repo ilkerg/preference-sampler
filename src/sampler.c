@@ -191,9 +191,10 @@ sim(const gsl_rng *r, const double theta_star[K], const int promoted_index, cons
 
 
     /* apply prior interactions */
+    if (prior_file != "")
     {
         char game[255] = {0};
-        size_t players[K];
+        size_t players[L];
         size_t winner;
 
         FILE *f = fopen(prior_file, "r");
@@ -202,10 +203,10 @@ sim(const gsl_rng *r, const double theta_star[K], const int promoted_index, cons
             exit(EXIT_FAILURE);
         }
 
-        while(fscanf(f, "%s %zu", game, &winner) != EOF) {
+        while(fscanf(f, "%s %zu\n", game, &winner) != EOF) {
             char *token = strtok(game, ",");
-            for(size_t k=0; k<K; k++) {
-                players[k] = (size_t) atoi(token);
+            for(size_t l=0; l<L; l++) {
+                players[l] = (size_t) atoi(token);
                 token = strtok(NULL, ",");
             }
 
