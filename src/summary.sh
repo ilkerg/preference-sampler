@@ -9,8 +9,9 @@ grep game $1 | cut -d' ' -f3 \
     | awk '{
     split($0, arr, ",");
     asort(arr);
-    for (i=1; i<=length(arr); i++) {
+    for (i=1; i<=length(arr)-1; i++) {
         printf "%s,", arr[i] };
+        printf "%s", arr[length(arr)]
         printf RS
     }' | sort -n | uniq -c | sort -rn | head -n 10
 
