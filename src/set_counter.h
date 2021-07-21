@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#define HASH_TABLE_SIZE 1024
+#define HASH_TABLE_SIZE 102400
 
 extern const size_t L;
 

@@ -13,11 +13,11 @@
 #include <omp.h>
 #endif
 
-const size_t N=10000;
-const size_t T=1000;
-const size_t K=20;
+const size_t N=1000;
+const size_t T=10000;
+const size_t K=1000;
 const size_t L=2;
-const double alpha_k = 0.5;
+const double alpha_k = 3;
 
 /*
  * 0: thompson sampling
@@ -213,9 +213,11 @@ sim(const gsl_rng *r, const double theta_star[K])
             size_t theta_sample_idx = gsl_ran_discrete(r, g);
             gsl_ran_discrete_free(g);
 
+            /*
             printf("# sampled theta: ");
             to_string(logtheta[theta_sample_idx], K);
             printf("\n");
+            */
 
             /* pick L elements from current sample */
             gsl_sort_largest_index(players, L, logtheta[theta_sample_idx], 1, K);
