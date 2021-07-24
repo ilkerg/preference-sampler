@@ -334,6 +334,13 @@ main(int argc, char *argv[])
     t = gsl_rng_default;
     r = gsl_rng_alloc(t);
 
+    FILE *rng_state_file;
+    if (rng_state_file = fopen("rng_state", "r")) {
+        printf("# reading rng state from file rng_state\n");
+        gsl_rng_fread(rng_state_file, r);
+        fclose(rng_state_file);
+    }
+
     gsl_set_error_handler_off();
 
     double *theta_star = malloc(K * sizeof(double));
@@ -353,6 +360,11 @@ main(int argc, char *argv[])
 
     // perform simulation
     sim(r, theta_star);
+
+    // write rng state
+    rng_state_file = fopen("rng_state", "w");
+    gsl_rng_fwrite(rng_state_file, r);
+    fclose(rng_state_file);
 
     // cleanup
     free(theta_star);
