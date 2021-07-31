@@ -16,7 +16,7 @@
 const size_t N=1000;
 const size_t T=10000;
 const size_t K=1000;
-const size_t L=2;
+const size_t L=3;
 const double alpha_k = 3;
 
 /*
@@ -220,7 +220,15 @@ sim(const gsl_rng *r, const double theta_star[K])
             */
 
             /* pick L elements from current sample */
-            gsl_sort_largest_index(players, L, logtheta[theta_sample_idx], 1, K);
+            {
+                double *p=logtheta[theta_sample_idx];
+                gsl_sort_largest_index(&players[1], L-1, p++, 1, K-1);
+
+                players[0] = 0;
+                for (size_t l=1; l<L; l++) {
+                    players[l]++;
+                }
+            }
         } else if (strategy == 1) {
             /* presentation strategy: uniform subset */
             printf("# strategy: uniform subset\n");
