@@ -15,7 +15,7 @@
 
 const size_t N=1000;
 const size_t T=10000;
-const size_t K=1000;
+const size_t K=1001;
 const size_t L=3;
 const double alpha_k = 3;
 
@@ -221,8 +221,7 @@ sim(const gsl_rng *r, const double theta_star[K])
 
             /* pick L elements from current sample */
             {
-                double *p=logtheta[theta_sample_idx];
-                gsl_sort_largest_index(&players[1], L-1, p++, 1, K-1);
+                gsl_sort_largest_index(&players[1], L-1, &(logtheta[theta_sample_idx][1]), 1, K-1);
 
                 players[0] = 0;
                 for (size_t l=1; l<L; l++) {
